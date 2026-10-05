@@ -7,6 +7,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   body { font-family: 'Segoe UI', Tahoma, sans-serif; }
   .sidebar-item { transition: all 0.2s; }
@@ -22,23 +24,94 @@
   .line-row input { font-size: 12px; }
   .disabled-overlay { opacity: 0.5; pointer-events: none; }
 
-  @media print {
-    body * { visibility: hidden; }
-    #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
-    #invoicePrintArea { position: absolute; left: 0; top: 0; width: 148mm; min-height: 210mm; padding: 10mm; font-size: 11px; }
-    @page { size: A5 portrait; margin: 0; }
+  .print-toolbar {
+    position: sticky;
+    z-index: 20;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
+  .print-toolbar-top { top: 0; }
+  .print-toolbar-bottom { bottom: 0; border-bottom: none; border-top: 1px solid #e2e8f0; box-shadow: 0 -2px 8px rgba(0,0,0,0.06); }
+  .print-hint {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #1e40af;
+    border-radius: 4px;
+  }
+  .checkbox-inv { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
+  tr.row-selected { background: #dbeafe !important; }
+
   .invoice-paper { width: 148mm; min-height: 210mm; padding: 10mm; background: white; font-size: 11px; color: #000; }
   .invoice-paper table { width: 100%; }
   .invoice-paper .header-title { font-size: 18px; font-weight: bold; letter-spacing: 2px; }
   .invoice-paper .line-item th { border-bottom: 1px solid #000; padding: 4px; text-align: left; font-size: 10px; }
   .invoice-paper .line-item td { padding: 4px; border-bottom: 1px dotted #999; }
+
+  /* Hidden render container untuk PDF — tetap di viewport, tapi tidak menghalangi */
+  #pdfRenderStage {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 148mm;
+    background: white;
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  @media print {
+    body * { visibility: hidden; }
+    #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
+    #invoicePrintArea {
+      position: absolute; left: 0; top: 0;
+      width: 148mm; padding: 0; font-size: 11px;
+    }
+    #invoicePrintArea .invoice-paper-page {
+      width: 148mm;
+      min-height: 210mm;
+      padding: 10mm;
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+    #invoicePrintArea .invoice-paper-page:last-child { page-break-after: auto; }
+    @page { size: A5 portrait; margin: 0; }
+  }
+
+  /* Toast */
+  .toast-box {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e293b;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .spinner {
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body class="bg-gray-100">
 
 <div class="flex h-screen overflow-hidden">
-
   <aside class="w-64 bg-slate-800 text-white flex flex-col">
     <div class="p-4 border-b border-slate-700">
       <h1 class="text-xl font-bold">📊 ERP PKP</h1>
@@ -74,7 +147,10 @@
       <a href="#" onclick="showPage('labarugi', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📈</span> Laba Rugi</a>
       <a href="#" onclick="showPage('neraca', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🏛️</span> Neraca</a>
       <a href="#" onclick="showPage('aruskas', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>💵</span> Arus Kas</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Kontrol & Audit</div>
       <a href="#" onclick="showPage('tutupbuku', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🔒</span> Tutup Buku</a>
+      <a href="#" onclick="showPage('audit', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📋</span> Audit Log</a>
     </nav>
     <div class="p-3 border-t border-slate-700 text-xs text-slate-400">Logged in: <span class="text-white font-semibold">admin</span></div>
   </aside>
@@ -246,9 +322,32 @@
               <button onclick="openModal('modalInvoice')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Buat Invoice</button>
             </div>
           </div>
+
+          <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+            <div class="flex items-center gap-3 text-sm">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chkSelectAll" class="checkbox-inv" onchange="toggleSelectAllInvoices()">
+                <span class="font-semibold text-slate-600">Pilih Semua</span>
+              </label>
+              <span class="text-slate-400">|</span>
+              <span class="text-slate-600"><span id="invSelectedCount" class="font-bold text-blue-600">0</span> dipilih</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="printSelectedInvoices()" id="btnPrintSelected" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                🖨 Print Terpilih
+              </button>
+              <button onclick="downloadSelectedInvoicesPDF()" id="btnDownloadSelected" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                📥 Download PDF Terpilih
+              </button>
+            </div>
+          </div>
+
           <table class="w-full text-sm" id="tblInvoice">
             <thead class="bg-slate-100 text-slate-600">
               <tr>
+                <th class="text-center p-2 w-10">
+                  <input type="checkbox" id="chkHeadAll" class="checkbox-inv" onchange="toggleSelectAllInvoices()">
+                </th>
                 <th class="text-left p-2">No. Invoice</th>
                 <th class="text-left p-2">Tanggal</th>
                 <th class="text-left p-2">Customer</th>
@@ -268,7 +367,10 @@
         <div class="bg-white rounded-lg p-4 shadow">
           <div class="flex justify-between mb-4">
             <h3 class="font-semibold">Jurnal Umum</h3>
-            <button onclick="exportExcel('tblJurnal','jurnal-umum')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+            <div class="flex gap-2">
+              <button onclick="openModalJurnalKoreksi()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">📝 Jurnal Koreksi</button>
+              <button onclick="exportExcel('tblJurnal','jurnal-umum')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+            </div>
           </div>
           <table class="w-full text-sm" id="tblJurnal">
             <thead class="bg-slate-100 text-slate-600">
@@ -424,7 +526,7 @@
       </section>
 
       <section id="page-tutupbuku" class="page hidden">
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-5xl mx-auto">
           <div class="bg-white rounded-lg p-4 shadow mb-4">
             <h3 class="font-semibold mb-4">Tutup Buku Bulanan</h3>
             <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4 text-sm">
@@ -433,7 +535,6 @@
                 <li>Memindahkan saldo Penjualan, HPP, dan Beban ke Laba Ditahan</li>
                 <li>Menyimpan snapshot laporan periode ini</li>
                 <li>Mengunci periode agar tidak bisa input transaksi baru</li>
-                <li>Membuat periode baru otomatis</li>
               </ul>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -452,15 +553,16 @@
               <tr><td class="p-2">Total Beban</td><td class="p-2 font-semibold" id="closingBeban">Rp 0</td></tr>
               <tr class="bg-green-50"><td class="p-2 font-bold">Laba Bersih</td><td class="p-2 font-bold text-green-700" id="closingLaba">Rp 0</td></tr>
             </tbody></table>
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
               <button onclick="doClosing()" id="btnClosing" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">🔒 Proses Tutup Buku</button>
+              <button onclick="openModal('modalUnlock')" id="btnUnlock" class="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 hidden">🔓 Buka Kembali Periode</button>
               <button onclick="resetData()" class="bg-slate-500 text-white px-4 py-2 rounded hover:bg-slate-600">🔄 Reset Demo</button>
             </div>
             <div id="closingResult" class="mt-4"></div>
           </div>
 
           <div class="bg-white rounded-lg p-4 shadow">
-            <h3 class="font-semibold mb-3">📚 Riwayat Periode Tertutup (Snapshot)</h3>
+            <h3 class="font-semibold mb-3">📚 Riwayat Periode Tertutup</h3>
             <table class="w-full text-sm" id="tblClosedPeriods">
               <thead class="bg-slate-100 text-slate-600">
                 <tr>
@@ -470,11 +572,58 @@
                   <th class="text-right p-2">HPP</th>
                   <th class="text-right p-2">Beban</th>
                   <th class="text-right p-2">Laba Bersih</th>
+                  <th class="text-left p-2">Status</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section id="page-audit" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <h3 class="font-semibold">📋 Audit Log — Jejak Aktivitas</h3>
+            <div class="flex gap-2 items-center flex-wrap">
+              <label class="text-xs">Dari</label>
+              <input type="date" id="auditDari" class="border rounded p-1.5 text-sm">
+              <label class="text-xs">Sampai</label>
+              <input type="date" id="auditSampai" class="border rounded p-1.5 text-sm">
+              <select id="auditFilterAksi" class="border rounded p-1.5 text-sm">
+                <option value="">Semua Aksi</option>
+                <option>TUTUP BUKU</option>
+                <option>UNLOCK</option>
+                <option>JURNAL KOREKSI</option>
+                <option>FAKTUR PAJAK</option>
+                <option>MASTER DATA</option>
+              </select>
+              <button onclick="renderAuditLog()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🔍 Filter</button>
+              <button onclick="exportAuditLog()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+            </div>
+          </div>
+          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-2 mb-3 text-xs">
+            🔒 Audit log bersifat <strong>read-only</strong>. Semua aktivitas penting dicatat otomatis oleh sistem untuk keperluan audit.
+          </div>
+          <div class="grid grid-cols-4 gap-3 mb-4 text-sm">
+            <div class="bg-slate-50 p-3 rounded"><div class="text-xs text-slate-500">Total Entri</div><div class="font-bold" id="auditTotal">0</div></div>
+            <div class="bg-red-50 p-3 rounded"><div class="text-xs text-slate-500">Closing</div><div class="font-bold text-red-700" id="auditClosing">0</div></div>
+            <div class="bg-orange-50 p-3 rounded"><div class="text-xs text-slate-500">Unlock</div><div class="font-bold text-orange-700" id="auditUnlock">0</div></div>
+            <div class="bg-blue-50 p-3 rounded"><div class="text-xs text-slate-500">Koreksi</div><div class="font-bold text-blue-700" id="auditKoreksi">0</div></div>
+          </div>
+          <table class="w-full text-sm" id="tblAuditLog">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr>
+                <th class="text-left p-2">Waktu</th>
+                <th class="text-left p-2">Aksi</th>
+                <th class="text-left p-2">User</th>
+                <th class="text-left p-2">Detail</th>
+                <th class="text-left p-2">Sebelum</th>
+                <th class="text-left p-2">Sesudah</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
       </section>
 
@@ -603,25 +752,21 @@
   </div>
 </div>
 
-<!-- MODAL FAKTUR PAJAK -->
 <div id="modalFakturPajak" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
   <div class="bg-white rounded-lg p-6 w-[480px]">
     <h3 class="font-bold mb-3">🧾 Pasang Faktur Pajak</h3>
     <div id="fakturInfo" class="bg-slate-50 p-3 rounded mb-3 text-xs"></div>
     <label class="text-xs font-semibold">Nomor Faktur Pajak *</label>
     <input id="fakturNomor" placeholder="010.000-26.00000001" class="border w-full p-2 rounded mb-3 text-sm">
-
     <label class="text-xs font-semibold">Pembulatan (Rp)</label>
-    <div class="text-xs text-slate-500 mb-1">Biarkan 0 jika tidak ada pembulatan. Jika diisi, nilai invoice otomatis mengikuti.</div>
+    <div class="text-xs text-slate-500 mb-1">Biarkan 0 jika tidak ada pembulatan.</div>
     <input id="fakturPembulatan" type="number" placeholder="0" class="border w-full p-2 rounded mb-1 text-sm" oninput="previewFakturPembulatan()">
     <div id="fakturPembulatanInfo" class="text-xs mb-3"></div>
-
     <div class="bg-blue-50 p-3 rounded mb-3 text-sm">
       <div class="flex justify-between"><span>Nilai Invoice Sebelum</span><span id="fakturSebelum" class="font-semibold">Rp 0</span></div>
       <div class="flex justify-between"><span>Pembulatan</span><span id="fakturDelta" class="font-semibold">Rp 0</span></div>
       <div class="flex justify-between border-t border-blue-200 mt-1 pt-1"><span class="font-bold">Nilai Invoice Setelah</span><span id="fakturSesudah" class="font-bold text-blue-700">Rp 0</span></div>
     </div>
-
     <div class="flex gap-2 justify-end">
       <button onclick="closeModal('modalFakturPajak')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
       <button onclick="saveFakturPajak()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan</button>
@@ -629,20 +774,138 @@
   </div>
 </div>
 
-<div id="modalInvoicePrint" class="modal fixed inset-0 bg-black/70 items-center justify-center z-50 overflow-y-auto py-6">
-  <div class="bg-white rounded-lg p-4 max-w-3xl w-full">
-    <div class="flex justify-between mb-3">
-      <h3 class="font-bold">Preview Invoice (A5 Portrait)</h3>
-      <div class="flex gap-2">
-        <button onclick="window.print()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🖨 Cetak / PDF</button>
-        <button onclick="closeModal('modalInvoicePrint')" class="bg-slate-300 px-3 py-1.5 rounded text-sm">Tutup</button>
-      </div>
+<div id="modalUnlock" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[520px]">
+    <h3 class="font-bold mb-3 text-red-600">🔓 Buka Kembali Periode</h3>
+    <div class="bg-red-50 border-l-4 border-red-500 p-3 mb-3 text-sm">
+      <strong class="text-red-700">⚠️ PERINGATAN</strong>
+      <ul class="list-disc ml-5 mt-1 text-xs">
+        <li>Jurnal closing akan <strong>dibatalkan otomatis</strong> (reverse)</li>
+        <li>Laporan periode ini akan <strong>berubah</strong></li>
+        <li>Semua perubahan <strong>dicatat di Audit Log</strong></li>
+        <li>Aksi ini hanya untuk <strong>koreksi darurat</strong></li>
+      </ul>
     </div>
-    <div class="bg-slate-100 p-4 overflow-x-auto">
-      <div id="invoicePrintArea" class="invoice-paper mx-auto shadow-lg"></div>
+    <label class="text-xs font-semibold">Alasan Unlock *</label>
+    <textarea id="unlockAlasan" rows="3" class="border w-full p-2 rounded mb-2 text-sm" placeholder="Contoh: INV0005 salah customer, harus direvisi"></textarea>
+    <label class="text-xs font-semibold">Password *</label>
+    <input id="unlockPassword" type="password" class="border w-full p-2 rounded mb-2 text-sm" placeholder="Password admin">
+    <div class="text-xs text-slate-500 mb-3">Hint prototipe: <code class="bg-slate-100 px-1 rounded">admin123</code></div>
+    <label class="flex items-center gap-2 mb-3 text-xs cursor-pointer">
+      <input id="unlockKonfirm" type="checkbox">
+      Saya paham konsekuensinya dan bertanggung jawab atas perubahan ini
+    </label>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalUnlock')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="doUnlock()" class="px-3 py-1.5 text-sm rounded bg-red-600 text-white">🔓 Buka Periode</button>
     </div>
   </div>
 </div>
+
+<div id="modalJurnalKoreksi" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[760px] max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold mb-3">📝 Jurnal Koreksi Manual</h3>
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-2 mb-3 text-xs">
+      Jurnal ini akan masuk ke <strong>periode aktif</strong> dan mengubah laporan bulan ini.
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="text-xs font-semibold">Tanggal</label>
+        <input id="jkTanggal" type="date" class="border w-full p-2 rounded text-sm">
+      </div>
+      <div>
+        <label class="text-xs font-semibold">Keterangan *</label>
+        <input id="jkKet" class="border w-full p-2 rounded text-sm" placeholder="Contoh: Koreksi INV0001">
+      </div>
+    </div>
+    <div class="border rounded mb-3">
+      <div class="bg-slate-100 p-2 flex justify-between items-center">
+        <span class="font-semibold text-sm">Baris Jurnal</span>
+        <button onclick="addJKLine()" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">+ Tambah Baris</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs">
+          <tr>
+            <th class="text-left p-1">Akun</th>
+            <th class="text-right p-1 w-32">Debit</th>
+            <th class="text-right p-1 w-32">Kredit</th>
+            <th class="w-8"></th>
+          </tr>
+        </thead>
+        <tbody id="jkLines"></tbody>
+        <tfoot class="bg-slate-50 font-semibold text-sm">
+          <tr>
+            <td class="text-right p-2">TOTAL</td>
+            <td class="text-right p-2" id="jkTotalDebit">Rp 0</td>
+            <td class="text-right p-2" id="jkTotalKredit">Rp 0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div id="jkBalance" class="text-xs mb-3"></div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalJurnalKoreksi')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="saveJurnalKoreksi()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan Jurnal</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalInvoicePrint" class="modal fixed inset-0 bg-black/70 items-start justify-center z-50 overflow-y-auto">
+  <div class="bg-slate-50 rounded-lg w-full max-w-4xl my-6 mx-4 shadow-2xl overflow-hidden">
+
+    <div class="print-toolbar print-toolbar-top flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="text-2xl">🧾</div>
+        <div>
+          <h3 class="font-bold text-slate-800">Preview Invoice</h3>
+          <p class="text-xs text-slate-500" id="printCounter">1 dari 1</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="printCurrentBatch()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold flex items-center gap-2">
+          🖨 Print Semua
+        </button>
+        <button onclick="downloadCurrentBatchPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-semibold flex items-center gap-2">
+          📥 Download PDF File
+        </button>
+        <button onclick="closeModal('modalInvoicePrint')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded text-sm font-semibold">
+          ✕ Tutup
+        </button>
+      </div>
+    </div>
+
+    <div class="px-4 pt-3">
+      <div class="print-hint">
+        💡 <strong>Tips:</strong>
+        <strong>🖨 Print Semua</strong> → buka dialog print browser (bisa Save as PDF)<br>
+        <strong>📥 Download PDF File</strong> → langsung download file PDF tanpa dialog print
+      </div>
+    </div>
+
+    <div class="p-4 overflow-x-auto">
+      <div id="invoicePrintArea" class="invoice-paper mx-auto shadow-lg"></div>
+    </div>
+
+    <div class="print-toolbar print-toolbar-bottom flex items-center justify-between gap-3 flex-wrap">
+      <div class="text-xs text-slate-500">
+        Total <span id="printTotalCount" class="font-bold text-slate-700">1</span> invoice akan diproses
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="printCurrentBatch()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold">
+          🖨 Print Semua
+        </button>
+        <button onclick="downloadCurrentBatchPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-semibold">
+          📥 Download PDF File
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- HIDDEN RENDER STAGE UNTUK PDF -->
+<div id="pdfRenderStage" aria-hidden="true"></div>
 
 <script>
 /* =========================================================
@@ -682,20 +945,91 @@ const DB = {
     { kode: '701', nama: 'Beban Bunga', tipe: 'Beban Lain', normal: 'D' },
   ],
   po: [], grn: [], so: [], invoice: [], jurnal: [], saldo: {},
-  closedPeriods: [], // Snapshot periode tertutup
+  closedPeriods: [],
+  auditLog: [],
   currentPeriod: '2026-10',
   isClosed: false,
-  counter: { cust: 0, sup: 0, prod: 0, po: 0, grn: 0, so: 0, inv: 0, jurnal: 0 },
+  counter: { cust: 0, sup: 0, prod: 0, po: 0, grn: 0, so: 0, inv: 0, jurnal: 0, audit: 0 },
 };
 
 const fmt = (n) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
 const fmtNum = (n) => Math.round(n || 0).toLocaleString('id-ID');
 const today = () => new Date().toISOString().slice(0,10);
+const nowISO = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 const periodLabel = (p) => {
   const [y, m] = p.split('-');
   const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return bulan[parseInt(m)-1] + ' ' + y;
 };
+
+/* =========================================================
+   AUDIT LOG
+   ========================================================= */
+function logAudit(aksi, detail, sebelum = '-', sesudah = '-') {
+  DB.counter.audit++;
+  DB.auditLog.push({
+    id: DB.counter.audit,
+    waktu: nowISO(),
+    aksi,
+    user: 'admin',
+    detail,
+    sebelum: String(sebelum),
+    sesudah: String(sesudah),
+  });
+}
+
+/* =========================================================
+   INVOICE SELECTION
+   ========================================================= */
+let selectedInvoices = new Set();
+let currentPrintBatch = [];
+
+function toggleInvoiceSelection(invNo, checked) {
+  if (checked) selectedInvoices.add(invNo);
+  else selectedInvoices.delete(invNo);
+  const row = document.querySelector(`tr[data-invno="${invNo}"]`);
+  if (row) {
+    if (checked) row.classList.add('row-selected');
+    else row.classList.remove('row-selected');
+  }
+  updateInvoiceSelectionUI();
+}
+
+function toggleSelectAllInvoices() {
+  const headAll = document.getElementById('chkHeadAll');
+  const selectAll = document.getElementById('chkSelectAll');
+  const isChecked = (headAll && headAll.checked) || (selectAll && selectAll.checked);
+  if (headAll) headAll.checked = isChecked;
+  if (selectAll) selectAll.checked = isChecked;
+  if (isChecked) DB.invoice.forEach(i => selectedInvoices.add(i.no));
+  else selectedInvoices.clear();
+  document.querySelectorAll('.chk-inv').forEach(chk => {
+    if (chk.id === 'chkHeadAll' || chk.id === 'chkSelectAll') return;
+    chk.checked = isChecked;
+    const row = chk.closest('tr');
+    if (row) {
+      if (isChecked) row.classList.add('row-selected');
+      else row.classList.remove('row-selected');
+    }
+  });
+  updateInvoiceSelectionUI();
+}
+
+function updateInvoiceSelectionUI() {
+  const count = selectedInvoices.size;
+  const el = document.getElementById('invSelectedCount');
+  if (el) el.textContent = count;
+  const btnPrint = document.getElementById('btnPrintSelected');
+  const btnDownload = document.getElementById('btnDownloadSelected');
+  if (btnPrint) btnPrint.disabled = count === 0;
+  if (btnDownload) btnDownload.disabled = count === 0;
+  const headAll = document.getElementById('chkHeadAll');
+  const selectAll = document.getElementById('chkSelectAll');
+  const allChecked = count > 0 && count === DB.invoice.length;
+  const indeterminate = count > 0 && count < DB.invoice.length;
+  if (headAll) { headAll.checked = allChecked; headAll.indeterminate = indeterminate; }
+  if (selectAll) { selectAll.checked = allChecked; selectAll.indeterminate = indeterminate; }
+}
 
 /* =========================================================
    NAV
@@ -711,17 +1045,16 @@ function showPage(name, el) {
     coa: 'Chart of Account', po: 'Purchase Order', grn: 'Goods Receipt', so: 'Sales Order',
     invoice: 'Invoice Penjualan', jurnal: 'Jurnal Umum', 'buku-besar': 'Buku Besar',
     trial: 'Trial Balance', 'lap-penjualan': 'Laporan Penjualan', 'lap-pembelian': 'Laporan Pembelian',
-    labarugi: 'Laba Rugi', neraca: 'Neraca', aruskas: 'Arus Kas', tutupbuku: 'Tutup Buku'
+    labarugi: 'Laba Rugi', neraca: 'Neraca', aruskas: 'Arus Kas', tutupbuku: 'Tutup Buku',
+    audit: 'Audit Log'
   };
   document.getElementById('pageTitle').textContent = titles[name] || name;
   try { renderAll(); } catch(e) { console.error('renderAll error:', e); }
 }
 
 function openModal(id) {
-  if (DB.isClosed) {
-    if (['modalPO','modalGRN','modalSO','modalInvoice'].includes(id)) {
-      return alert('🔒 Periode sudah ditutup.\n\nSilakan buka periode baru (fitur akan datang) atau reset demo.');
-    }
+  if (DB.isClosed && ['modalPO','modalGRN','modalSO','modalInvoice'].includes(id)) {
+    return alert('🔒 Periode sudah ditutup.\n\nSilakan buka kembali periode ini (Unlock) atau reset demo.');
   }
   if (id === 'modalPO') {
     document.getElementById('poSupplier').innerHTML = DB.suppliers.map(s => `<option value="${s.kode}">${s.nama}</option>`).join('');
@@ -826,6 +1159,17 @@ function exportNeraca() {
   XLSX.writeFile(wb, `neraca_${today()}.xlsx`);
 }
 
+function exportAuditLog() {
+  const rows = [['AUDIT LOG ERP PT PKP'], [`Export: ${nowISO()}`], [],
+    ['Waktu','Aksi','User','Detail','Sebelum','Sesudah']];
+  DB.auditLog.forEach(a => {
+    rows.push([a.waktu, a.aksi, a.user, a.detail, a.sebelum, a.sesudah]);
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'AuditLog');
+  XLSX.writeFile(wb, `audit-log_${today()}.xlsx`);
+}
+
 /* =========================================================
    MASTER
    ========================================================= */
@@ -835,12 +1179,14 @@ function addCustomer() {
   if (!nama) return alert('Nama wajib diisi');
   if (!alamat) return alert('Alamat wajib diisi');
   DB.counter.cust++;
-  DB.customers.push({
+  const newCust = {
     kode: 'C' + String(DB.counter.cust).padStart(3,'0'),
     nama, alamat,
     npwp: document.getElementById('custNPWP').value.trim() || '-',
     status: 'Non-PKP'
-  });
+  };
+  DB.customers.push(newCust);
+  logAudit('MASTER DATA', `Tambah Customer: ${newCust.kode} - ${nama}`, '-', `Kode: ${newCust.kode}, Alamat: ${alamat}`);
   document.getElementById('custNama').value = '';
   document.getElementById('custAlamat').value = '';
   document.getElementById('custNPWP').value = '';
@@ -852,12 +1198,14 @@ function addSupplier() {
   if (!nama) return alert('Nama wajib diisi');
   if (!alamat) return alert('Alamat wajib diisi');
   DB.counter.sup++;
-  DB.suppliers.push({
+  const newSup = {
     kode: 'S' + String(DB.counter.sup).padStart(3,'0'),
     nama, alamat,
     npwp: document.getElementById('supNPWP').value.trim() || '-',
     status: 'PKP'
-  });
+  };
+  DB.suppliers.push(newSup);
+  logAudit('MASTER DATA', `Tambah Supplier: ${newSup.kode} - ${nama}`, '-', `Kode: ${newSup.kode}, Alamat: ${alamat}`);
   document.getElementById('supNama').value = '';
   document.getElementById('supAlamat').value = '';
   document.getElementById('supNPWP').value = '';
@@ -867,7 +1215,9 @@ function addProduk() {
   const nama = document.getElementById('prodNama').value.trim();
   if (!nama) return alert('Nama wajib');
   DB.counter.prod++;
-  DB.products.push({ kode: 'P' + String(DB.counter.prod).padStart(3,'0'), nama, satuan: document.getElementById('prodSatuan').value || 'pcs', qty: 0, hppAvg: 0 });
+  const newProd = { kode: 'P' + String(DB.counter.prod).padStart(3,'0'), nama, satuan: document.getElementById('prodSatuan').value || 'pcs', qty: 0, hppAvg: 0 };
+  DB.products.push(newProd);
+  logAudit('MASTER DATA', `Tambah Produk: ${newProd.kode} - ${nama}`, '-', `Satuan: ${newProd.satuan}`);
   document.getElementById('prodNama').value = '';
   document.getElementById('prodSatuan').value = '';
   closeModal('modalProduk'); renderAll();
@@ -1094,14 +1444,14 @@ function addInvoice() {
     no: 'INV' + String(DB.counter.inv).padStart(4,'0'),
     tanggal: tgl, soNo: so.no, customerNama: so.customerNama,
     items: itemsWithHpp, penjualan, hpp, laba: penjualan - hpp,
-    fakturPajak: null, // { nomor, pembulatan, penjualanSetelah }
+    fakturPajak: null,
   });
   so.status = 'CLOSED';
   closeModal('modalInvoice'); renderAll();
 }
 
 /* =========================================================
-   FAKTUR PAJAK + PEMBULATAN
+   FAKTUR PAJAK
    ========================================================= */
 let currentFakturInvNo = null;
 
@@ -1109,18 +1459,15 @@ function openFakturModal(invNo) {
   const inv = DB.invoice.find(i => i.no === invNo);
   if (!inv) return;
   currentFakturInvNo = invNo;
-
   document.getElementById('fakturInfo').innerHTML = `
     <div><strong>${inv.no}</strong> — ${inv.customerNama}</div>
     <div>Nilai Invoice: <strong>${fmt(inv.penjualan)}</strong></div>
     ${inv.fakturPajak ? '<div class="text-green-600 mt-1">✓ Faktur pajak sudah terpasang</div>' : ''}
   `;
-
   if (inv.fakturPajak) {
     document.getElementById('fakturNomor').value = inv.fakturPajak.nomor;
     document.getElementById('fakturPembulatan').value = inv.fakturPajak.pembulatan;
   } else {
-    // Auto-generate nomor faktur dummy
     const n = String(DB.invoice.indexOf(inv) + 1).padStart(8, '0');
     document.getElementById('fakturNomor').value = `010.000-26.${n}`;
     document.getElementById('fakturPembulatan').value = 0;
@@ -1135,11 +1482,9 @@ function previewFakturPembulatan() {
   const sebelum = inv.fakturPajak ? inv.fakturPajak.penjualanAsli : inv.penjualan;
   const pembulatan = parseFloat(document.getElementById('fakturPembulatan').value) || 0;
   const sesudah = sebelum + pembulatan;
-
   document.getElementById('fakturSebelum').textContent = fmt(sebelum);
   document.getElementById('fakturDelta').textContent = (pembulatan >= 0 ? '+' : '') + fmt(pembulatan);
   document.getElementById('fakturSesudah').textContent = fmt(sesudah);
-
   const info = document.getElementById('fakturPembulatanInfo');
   if (pembulatan === 0) {
     info.textContent = 'Tidak ada pembulatan — nilai invoice tetap.';
@@ -1153,57 +1498,40 @@ function previewFakturPembulatan() {
 function saveFakturPajak() {
   const inv = DB.invoice.find(i => i.no === currentFakturInvNo);
   if (!inv) return;
-
   const nomor = document.getElementById('fakturNomor').value.trim();
   if (!nomor) return alert('Nomor faktur pajak wajib diisi');
-
   const pembulatan = parseFloat(document.getElementById('fakturPembulatan').value) || 0;
   const penjualanAsli = inv.fakturPajak ? inv.fakturPajak.penjualanAsli : inv.penjualan;
   const penjualanBaru = penjualanAsli + pembulatan;
-
-  // === SELF-CHECK ===
   if (penjualanBaru <= 0) return alert('Nilai invoice setelah pembulatan tidak boleh ≤ 0');
-
-  // Simpan
+  const oldPembulatan = inv.fakturPajak ? inv.fakturPajak.pembulatan : 0;
+  const oldNomor = inv.fakturPajak ? inv.fakturPajak.nomor : '-';
   inv.fakturPajak = {
-    nomor,
-    pembulatan,
-    penjualanAsli,
+    nomor, pembulatan, penjualanAsli,
     penjualanSetelah: penjualanBaru,
     tglPasang: today(),
   };
-
-  // === SELF-UPDATING: Update nilai invoice ===
   const delta = penjualanBaru - inv.penjualan;
-
   if (delta !== 0) {
-    // Koreksi jurnal Penjualan
-    // Hapus efek saldo lama, tambah yang baru
-    DB.saldo['401'] = (DB.saldo['401'] || 0) - delta; // 401 normal kredit
-    DB.saldo['101'] = (DB.saldo['101'] || 0) + delta;
-
-    // Post jurnal penyesuaian pembulatan
     postJurnal(today(), `Penyesuaian pembulatan ${inv.no}`, [
       { akun: '101', nama: 'Kas / Bank', debit: delta, kredit: 0 },
       { akun: '401', nama: 'Penjualan', debit: 0, kredit: delta },
     ]);
-
-    // Update nilai invoice
     inv.penjualan = penjualanBaru;
     inv.laba = inv.penjualan - inv.hpp;
   }
-
+  logAudit('FAKTUR PAJAK', `${inv.no} — Nomor: ${nomor}`, `Nomor: ${oldNomor}, Pembulatan: ${oldPembulatan}`, `Nomor: ${nomor}, Pembulatan: ${pembulatan}, Nilai: ${fmt(penjualanBaru)}`);
   closeModal('modalFakturPajak');
   renderAll();
-  alert(`✅ Faktur pajak berhasil dipasang.\n\nNo: ${nomor}\nNilai Invoice: ${fmt(penjualanBaru)}\n${pembulatan !== 0 ? 'Pembulatan: ' + fmt(pembulatan) : ''}`);
+  alert(`✅ Faktur pajak berhasil dipasang.\n\nNo: ${nomor}\nNilai Invoice: ${fmt(penjualanBaru)}${pembulatan !== 0 ? '\nPembulatan: ' + fmt(pembulatan) : ''}`);
 }
 
 /* =========================================================
-   PRINT INVOICE A5
+   GENERATE INVOICE HTML (untuk preview & PDF)
    ========================================================= */
-function printInvoice(invNo) {
+function generateInvoiceHTML(invNo) {
   const inv = DB.invoice.find(i => i.no === invNo);
-  if (!inv) return;
+  if (!inv) return '';
   const cust = DB.customers.find(c => c.nama === inv.customerNama) || { alamat: '-', npwp: '-' };
   const terbilang = (n) => {
     const satuan = ['','Satu','Dua','Tiga','Empat','Lima','Enam','Tujuh','Delapan','Sembilan','Sepuluh','Sebelas'];
@@ -1230,53 +1558,302 @@ function printInvoice(invNo) {
       <td style="text-align:right">${fmtNum(i.subtotal)}</td>
     </tr>
   `).join('');
-
   const fpRow = inv.fakturPajak ? `
     <div style="font-size:9px;margin-bottom:12px">
       <strong>Faktur Pajak:</strong> ${inv.fakturPajak.nomor}<br>
       ${inv.fakturPajak.pembulatan !== 0 ? `<strong>Pembulatan:</strong> ${inv.fakturPajak.pembulatan >= 0 ? '+' : ''}${fmtNum(inv.fakturPajak.pembulatan)}<br>` : ''}
     </div>
   ` : '';
-
-  document.getElementById('invoicePrintArea').innerHTML = `
-    <div style="display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
-      <div>
-        <div style="font-weight:bold;font-size:14px">PT PKP</div>
-        <div style="font-size:9px">Jl. Contoh No. 123, Jakarta</div>
-        <div style="font-size:9px">NPWP: 01.234.567.8-901.000</div>
+  return `
+    <div class="invoice-paper-page">
+      <div style="display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:bold;font-size:14px">PT PKP</div>
+          <div style="font-size:9px">Jl. Contoh No. 123, Jakarta</div>
+          <div style="font-size:9px">NPWP: 01.234.567.8-901.000</div>
+        </div>
+        <div style="text-align:right">
+          <div class="header-title">INVOICE</div>
+          <div style="font-size:10px">No: ${inv.no}</div>
+          <div style="font-size:10px">Tanggal: ${inv.tanggal}</div>
+        </div>
       </div>
-      <div style="text-align:right">
-        <div class="header-title">INVOICE</div>
-        <div style="font-size:10px">No: ${inv.no}</div>
-        <div style="font-size:10px">Tanggal: ${inv.tanggal}</div>
+      <div style="margin-bottom:8px;display:flex;justify-content:space-between">
+        <div>
+          <div style="font-size:9px;color:#666">Kepada:</div>
+          <div style="font-weight:bold">${inv.customerNama}</div>
+          <div style="font-size:9px">${cust.alamat || '-'}</div>
+          <div style="font-size:9px">NPWP/KTP: ${cust.npwp || '-'}</div>
+        </div>
+        <div style="text-align:right;font-size:9px"><div>Customer Non-PKP</div></div>
       </div>
-    </div>
-    <div style="margin-bottom:8px;display:flex;justify-content:space-between">
-      <div>
-        <div style="font-size:9px;color:#666">Kepada:</div>
-        <div style="font-weight:bold">${inv.customerNama}</div>
-        <div style="font-size:9px">${cust.alamat || '-'}</div>
-        <div style="font-size:9px">NPWP/KTP: ${cust.npwp || '-'}</div>
+      <table class="line-item" style="margin-bottom:8px">
+        <thead><tr><th style="width:8%;text-align:center">No</th><th>Deskripsi</th><th style="width:12%;text-align:right">Qty</th><th style="width:20%;text-align:right">Harga</th><th style="width:22%;text-align:right">Jumlah</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <table style="margin-bottom:8px">
+        <tr><td style="text-align:right;padding:2px 6px;font-weight:bold">TOTAL</td><td style="text-align:right;padding:2px 6px;font-weight:bold;border-top:1px solid #000;width:35%">${fmt(inv.penjualan)}</td></tr>
+      </table>
+      <div style="font-size:9px;margin-bottom:12px;font-style:italic">Terbilang: <strong>${terbilang(inv.penjualan)}</strong></div>
+      ${fpRow}
+      <div style="font-size:9px;margin-bottom:12px"><strong>Pembayaran:</strong> Cash / Transfer<br><strong>Bank:</strong> Bank Contoh - A/C 1234567890</div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:24px">
+        <div style="text-align:center"><div>Penerima,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
+        <div style="text-align:center"><div>Hormat Kami,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
       </div>
-      <div style="text-align:right;font-size:9px"><div>Customer Non-PKP</div></div>
+      <div style="text-align:center;font-size:8px;color:#666;margin-top:14px;border-top:1px dotted #999;padding-top:4px">Dokumen ini dicetak dari sistem ERP PT PKP — ${new Date().toLocaleString('id-ID')}</div>
     </div>
-    <table class="line-item" style="margin-bottom:8px">
-      <thead><tr><th style="width:8%;text-align:center">No</th><th>Deskripsi</th><th style="width:12%;text-align:right">Qty</th><th style="width:20%;text-align:right">Harga</th><th style="width:22%;text-align:right">Jumlah</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <table style="margin-bottom:8px">
-      <tr><td style="text-align:right;padding:2px 6px;font-weight:bold">TOTAL</td><td style="text-align:right;padding:2px 6px;font-weight:bold;border-top:1px solid #000;width:35%">${fmt(inv.penjualan)}</td></tr>
-    </table>
-    <div style="font-size:9px;margin-bottom:12px;font-style:italic">Terbilang: <strong>${terbilang(inv.penjualan)}</strong></div>
-    ${fpRow}
-    <div style="font-size:9px;margin-bottom:12px"><strong>Pembayaran:</strong> Cash / Transfer<br><strong>Bank:</strong> Bank Contoh - A/C 1234567890</div>
-    <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:24px">
-      <div style="text-align:center"><div>Penerima,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
-      <div style="text-align:center"><div>Hormat Kami,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
-    </div>
-    <div style="text-align:center;font-size:8px;color:#666;margin-top:14px;border-top:1px dotted #999;padding-top:4px">Dokumen ini dicetak dari sistem ERP PT PKP — ${new Date().toLocaleString('id-ID')}</div>
   `;
+}
+
+/* =========================================================
+   PRINT PREVIEW & BATCH
+   ========================================================= */
+function printSelectedInvoices() {
+  if (selectedInvoices.size === 0) return alert('Pilih minimal 1 invoice dulu');
+  currentPrintBatch = Array.from(selectedInvoices);
+  showPrintPreviewBatch(currentPrintBatch);
+}
+function printInvoice(invNo) {
+  currentPrintBatch = [invNo];
+  showPrintPreviewBatch([invNo]);
+}
+function downloadSelectedInvoicesPDF() {
+  if (selectedInvoices.size === 0) return alert('Pilih minimal 1 invoice dulu');
+  const invNos = Array.from(selectedInvoices);
+  generatePDFBatch(invNos);
+}
+function downloadInvoicePDF(invNo) {
+  generatePDFBatch([invNo]);
+}
+function downloadCurrentBatchPDF() {
+  if (currentPrintBatch.length === 0) return;
+  generatePDFBatch(currentPrintBatch);
+}
+
+function showPrintPreviewBatch(invNos) {
+  if (!invNos || invNos.length === 0) return;
+  document.getElementById('printCounter').textContent = `Menampilkan ${invNos.length} invoice`;
+  document.getElementById('printTotalCount').textContent = invNos.length;
+  const allHtml = invNos.map((invNo, idx) => {
+    const html = generateInvoiceHTML(invNo);
+    if (!html) return '';
+    const pageBreak = idx < invNos.length - 1 ? '<div style="page-break-after: always; height: 0;"></div>' : '';
+    return html + pageBreak;
+  }).join('');
+  document.getElementById('invoicePrintArea').innerHTML = allHtml;
   document.getElementById('modalInvoicePrint').classList.add('active');
+}
+function printCurrentBatch() {
+  if (currentPrintBatch.length === 0) return;
+  window.print();
+}
+
+/* =========================================================
+   GENERATE PDF (langsung download)
+   Pakai html2canvas + jsPDF
+   ========================================================= */
+async function generatePDFBatch(invNos) {
+  if (!invNos || invNos.length === 0) return alert('Tidak ada invoice');
+  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+    return alert('Library PDF belum ter-load. Cek koneksi internet atau refresh halaman.');
+  }
+
+  const { jsPDF } = window.jspdf;
+
+  // Tampilkan progress toast
+  const toast = document.createElement('div');
+  toast.className = 'toast-box';
+  toast.innerHTML = `<div class="spinner"></div><span>Generating PDF (0/${invNos.length})...</span>`;
+  document.body.appendChild(toast);
+  const updateToast = (txt) => { toast.querySelector('span').textContent = txt; };
+
+  // Siapkan stage render — letakkan di viewport (bukan -9999px)
+  const stage = document.getElementById('pdfRenderStage');
+  stage.innerHTML = '';
+  stage.style.opacity = '0';
+  stage.style.zIndex = '1';
+
+  try {
+    // PDF A5 Portrait: 148mm x 210mm
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a5'
+    });
+
+    const pdfWidth = 148;
+    const pdfHeight = 210;
+
+    for (let i = 0; i < invNos.length; i++) {
+      updateToast(`Generating PDF (${i+1}/${invNos.length})...`);
+
+      // Buat halaman invoice di stage
+      const pageWrap = document.createElement('div');
+      pageWrap.style.width = '148mm';
+      pageWrap.style.minHeight = '210mm';
+      pageWrap.style.padding = '10mm';
+      pageWrap.style.background = 'white';
+      pageWrap.style.color = '#000';
+      pageWrap.style.fontSize = '11px';
+      pageWrap.style.boxSizing = 'border-box';
+      pageWrap.style.fontFamily = "'Segoe UI', Tahoma, sans-serif";
+      pageWrap.innerHTML = generateInvoiceHTML(invNos[i]);
+
+      // Pastikan tidak double class
+      const inner = pageWrap.querySelector('.invoice-paper-page');
+      if (inner) {
+        inner.style.width = '100%';
+        inner.style.minHeight = 'auto';
+        inner.style.padding = '0';
+      }
+
+      stage.appendChild(pageWrap);
+
+      // Tunggu browser render dulu
+      await new Promise(r => setTimeout(r, 80));
+
+      // Capture dengan html2canvas
+      const canvas = await html2canvas(pageWrap, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: pageWrap.scrollWidth,
+        windowHeight: pageWrap.scrollHeight,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Hitung ukuran gambar di PDF
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Kalau ini bukan halaman pertama, tambah halaman
+      if (i > 0) pdf.addPage();
+
+      // Kalau imgHeight > pdfHeight, scale down agar muat 1 halaman
+      if (imgHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+      } else {
+        // Kalau konten lebih tinggi dari halaman, bagi jadi beberapa halaman
+        const ratio = pdfHeight / imgHeight;
+        const scaledWidth = imgWidth;
+        const scaledHeight = pdfHeight;
+        // Fallback: paksa masuk 1 halaman dengan scale
+        pdf.addImage(imgData, 'JPEG', 0, 0, scaledWidth, scaledHeight);
+      }
+
+      // Bersihkan page wrap setelah selesai
+      stage.removeChild(pageWrap);
+    }
+
+    // Nama file
+    const filename = invNos.length === 1
+      ? `invoice-${invNos[0]}.pdf`
+      : `invoice-batch-${invNos.length}-${today()}.pdf`;
+
+    // Trigger download
+    pdf.save(filename);
+
+    // Bersihkan
+    stage.innerHTML = '';
+    document.body.removeChild(toast);
+
+    // Tampilkan notifikasi sukses
+    const success = document.createElement('div');
+    success.className = 'toast-box';
+    success.style.background = '#16a34a';
+    success.innerHTML = `<span>✅ PDF berhasil didownload: ${filename}</span>`;
+    document.body.appendChild(success);
+    setTimeout(() => {
+      if (document.body.contains(success)) document.body.removeChild(success);
+    }, 3000);
+
+  } catch (err) {
+    console.error('PDF Error:', err);
+    if (document.body.contains(toast)) document.body.removeChild(toast);
+    stage.innerHTML = '';
+    alert('Gagal generate PDF: ' + err.message);
+  }
+}
+
+/* =========================================================
+   JURNAL KOREKSI
+   ========================================================= */
+function openModalJurnalKoreksi() {
+  if (DB.isClosed) return alert('🔒 Periode tertutup. Unlock periode dulu untuk koreksi.');
+  document.getElementById('jkTanggal').value = today();
+  document.getElementById('jkKet').value = '';
+  document.getElementById('jkLines').innerHTML = '';
+  addJKLine();
+  addJKLine();
+  document.getElementById('modalJurnalKoreksi').classList.add('active');
+}
+
+function addJKLine() {
+  const tbody = document.getElementById('jkLines');
+  const tr = document.createElement('tr');
+  tr.className = 'line-row border-b';
+  tr.innerHTML = `
+    <td class="p-1">
+      <select class="border rounded p-1 w-full text-xs akun-select" onchange="calcJK()">
+        <option value="">-- Pilih Akun --</option>
+        ${DB.coa.map(c => `<option value="${c.kode}">${c.kode} - ${c.nama}</option>`).join('')}
+      </select>
+    </td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right debit" value="" min="0" oninput="calcJK()" placeholder="0"></td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right kredit" value="" min="0" oninput="calcJK()" placeholder="0"></td>
+    <td class="p-1 text-center"><button onclick="this.closest('tr').remove(); calcJK()" class="text-red-500 text-xs">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  calcJK();
+}
+
+function calcJK() {
+  let tD = 0, tK = 0;
+  document.querySelectorAll('#jkLines tr').forEach(tr => {
+    tD += parseFloat(tr.querySelector('.debit')?.value) || 0;
+    tK += parseFloat(tr.querySelector('.kredit')?.value) || 0;
+  });
+  document.getElementById('jkTotalDebit').textContent = fmt(tD);
+  document.getElementById('jkTotalKredit').textContent = fmt(tK);
+  const diff = Math.abs(tD - tK);
+  const el = document.getElementById('jkBalance');
+  if (tD === 0 && tK === 0) {
+    el.textContent = '';
+  } else if (diff < 0.5 && tD > 0) {
+    el.innerHTML = '<span class="text-green-600 font-semibold">✓ Balance — siap disimpan</span>';
+  } else {
+    el.innerHTML = `<span class="text-red-600 font-semibold">⚠ Tidak Balance: selisih ${fmt(diff)}</span>`;
+  }
+  return { tD, tK, balanced: diff < 0.5 && tD > 0 };
+}
+
+function saveJurnalKoreksi() {
+  if (DB.isClosed) return alert('🔒 Periode tertutup. Unlock dulu.');
+  const tgl = document.getElementById('jkTanggal').value || today();
+  const ket = document.getElementById('jkKet').value.trim();
+  if (!ket) return alert('Keterangan wajib diisi');
+  const lines = [];
+  document.querySelectorAll('#jkLines tr').forEach(tr => {
+    const akunKode = tr.querySelector('.akun-select').value;
+    const debit = parseFloat(tr.querySelector('.debit').value) || 0;
+    const kredit = parseFloat(tr.querySelector('.kredit').value) || 0;
+    if ((debit > 0 || kredit > 0) && akunKode) {
+      const akun = DB.coa.find(c => c.kode === akunKode);
+      lines.push({ akun: akunKode, nama: akun.nama, debit, kredit });
+    }
+  });
+  const check = calcJK();
+  if (!check.balanced) return alert('Jurnal tidak balance atau kosong');
+  if (lines.length < 2) return alert('Minimal 2 baris jurnal');
+  postJurnal(tgl, `[Koreksi] ${ket}`, lines);
+  const detailStr = lines.map(l => `${l.akun}${l.debit > 0 ? ' (Dr '+fmt(l.debit)+')' : ' (Cr '+fmt(l.kredit)+')'}`).join(', ');
+  logAudit('JURNAL KOREKSI', ket, '-', detailStr);
+  closeModal('modalJurnalKoreksi');
+  renderAll();
+  alert('✅ Jurnal koreksi berhasil disimpan');
 }
 
 /* =========================================================
@@ -1289,6 +1866,122 @@ function postJurnal(tgl, ket, lines) {
     DB.jurnal.push({ no, tanggal: tgl, keterangan: ket, akun: l.akun, akunNama: l.nama, debit: l.debit, kredit: l.kredit });
     DB.saldo[l.akun] = (DB.saldo[l.akun] || 0) + (l.debit - l.kredit);
   });
+}
+
+/* =========================================================
+   CLOSING
+   ========================================================= */
+function doClosing() {
+  if (DB.isClosed) return alert('Periode sudah ditutup');
+  const d = getLabaRugiData();
+  if (Math.abs(d.penjualan) < 0.5 && Math.abs(d.hpp) < 0.5 && Math.abs(d.beban) < 0.5) {
+    return alert('Tidak ada transaksi untuk ditutup');
+  }
+  const tglClosing = today();
+  const jurnalLines = [];
+
+  DB.coa.filter(c => c.tipe === 'Pendapatan' || c.tipe === 'Pendapatan Lain').forEach(c => {
+    const saldo = DB.saldo[c.kode] || 0;
+    if (Math.abs(saldo) < 0.5) return;
+    if (saldo < 0) jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
+    else jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
+  });
+
+  DB.coa.filter(c => c.tipe === 'HPP' || c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => {
+    const saldo = DB.saldo[c.kode] || 0;
+    if (Math.abs(saldo) < 0.5) return;
+    if (saldo > 0) jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
+    else jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
+  });
+
+  let totalDebitClosing = jurnalLines.reduce((s, l) => s + l.debit, 0);
+  let totalKreditClosing = jurnalLines.reduce((s, l) => s + l.kredit, 0);
+  const selisih = totalDebitClosing - totalKreditClosing;
+
+  if (selisih > 0) {
+    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: selisih, kredit: 0 });
+  } else if (selisih < 0) {
+    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: 0, kredit: -selisih });
+  }
+
+  if (jurnalLines.length > 0) {
+    postJurnal(tglClosing, `Tutup Buku ${periodLabel(DB.currentPeriod)}`, jurnalLines);
+  }
+
+  DB.closedPeriods.push({
+    periode: DB.currentPeriod,
+    tglClosing,
+    penjualan: d.penjualan,
+    hpp: d.hpp,
+    beban: d.beban,
+    labaBersih: d.labaBersih,
+    status: 'CLOSED',
+  });
+
+  logAudit('TUTUP BUKU', `Periode ${periodLabel(DB.currentPeriod)}`, 'OPEN', `CLOSED, Laba Bersih: ${fmt(d.labaBersih)}`);
+
+  document.getElementById('lrPeriode').innerHTML = '';
+  DB.isClosed = true;
+  renderAll();
+  document.getElementById('closingResult').innerHTML = `
+    <div class="bg-green-50 border-l-4 border-green-500 p-3 text-sm">
+      ✓ <strong>Tutup buku ${periodLabel(DB.currentPeriod)} berhasil!</strong><br>
+      Laba Bersih: <strong>${fmt(d.labaBersih)}</strong> telah dipindahkan ke Laba Ditahan.<br>
+      Periode dikunci. Snapshot disimpan untuk laporan historis.
+    </div>`;
+}
+
+function doUnlock() {
+  if (!DB.isClosed) return alert('Periode masih terbuka');
+  const alasan = document.getElementById('unlockAlasan').value.trim();
+  const password = document.getElementById('unlockPassword').value;
+  const konfirm = document.getElementById('unlockKonfirm').checked;
+
+  if (!alasan) return alert('Alasan wajib diisi');
+  if (password !== 'admin123') return alert('Password salah');
+  if (!konfirm) return alert('Centang konfirmasi dulu');
+
+  const idx = DB.closedPeriods.findIndex(p => p.periode === DB.currentPeriod);
+  if (idx === -1) return alert('Snapshot periode tidak ditemukan');
+
+  const closingKet = `Tutup Buku ${periodLabel(DB.currentPeriod)}`;
+  const closingJurnal = DB.jurnal.filter(j => j.keterangan === closingKet);
+
+  if (closingJurnal.length > 0) {
+    DB.counter.jurnal++;
+    const revNo = 'JV' + String(DB.counter.jurnal).padStart(5,'0');
+    closingJurnal.forEach(j => {
+      DB.jurnal.push({
+        no: revNo,
+        tanggal: today(),
+        keterangan: `[REVERSE] ${closingKet}`,
+        akun: j.akun,
+        akunNama: j.akunNama,
+        debit: j.kredit,
+        kredit: j.debit,
+      });
+      DB.saldo[j.akun] = (DB.saldo[j.akun] || 0) + (j.kredit - j.debit);
+    });
+  }
+
+  DB.closedPeriods[idx].status = 'REOPENED';
+  logAudit('UNLOCK', `Periode ${periodLabel(DB.currentPeriod)}`, 'CLOSED', `OPEN, Alasan: ${alasan}`);
+
+  document.getElementById('unlockAlasan').value = '';
+  document.getElementById('unlockPassword').value = '';
+  document.getElementById('unlockKonfirm').checked = false;
+  closeModal('modalUnlock');
+
+  DB.isClosed = false;
+  document.getElementById('lrPeriode').innerHTML = '';
+  renderAll();
+  document.getElementById('closingResult').innerHTML = `
+    <div class="bg-orange-50 border-l-4 border-orange-500 p-3 text-sm">
+      🔓 <strong>Periode ${periodLabel(DB.currentPeriod)} berhasil dibuka kembali.</strong><br>
+      Jurnal closing telah dibatalkan (reverse).<br>
+      Alasan: <em>${alasan}</em><br>
+      Silakan edit transaksi, lalu tutup buku ulang.
+    </div>`;
 }
 
 /* =========================================================
@@ -1313,6 +2006,7 @@ function renderAll() {
   renderArusKas();
   renderClosing();
   renderClosedPeriods();
+  renderAuditLog();
   applyClosedLock();
 }
 
@@ -1486,9 +2180,12 @@ function renderInvoice() {
     const fpCell = fp
       ? `<div class="text-xs"><div class="font-mono text-green-700">${fp.nomor}</div>${fp.pembulatan !== 0 ? `<div class="text-slate-500">Pembulatan: ${fp.pembulatan >= 0 ? '+' : ''}${fmtNum(fp.pembulatan)}</div>` : ''}</div>`
       : `<span class="badge bg-red-100 text-red-700">Belum ada</span>`;
-
+    const isChecked = selectedInvoices.has(i.no);
     return `
-    <tr class="border-b">
+    <tr class="border-b ${isChecked ? 'row-selected' : ''}" data-invno="${i.no}">
+      <td class="text-center p-2">
+        <input type="checkbox" class="checkbox-inv chk-inv" data-invno="${i.no}" ${isChecked ? 'checked' : ''} onchange="toggleInvoiceSelection('${i.no}', this.checked)">
+      </td>
       <td class="p-2 font-mono text-xs">${i.no}</td>
       <td class="p-2">${i.tanggal}</td>
       <td class="p-2">${i.customerNama}</td>
@@ -1498,13 +2195,15 @@ function renderInvoice() {
       <td class="p-2">${fpCell}</td>
       <td class="p-2 text-center">
         <div class="flex gap-1 justify-center">
-          <button onclick="printInvoice('${i.no}')" class="text-xs bg-slate-600 text-white px-2 py-1 rounded">🖨</button>
+          <button onclick="printInvoice('${i.no}')" class="text-xs bg-slate-600 text-white px-2 py-1 rounded" title="Preview & Cetak">🖨</button>
+          <button onclick="downloadInvoicePDF('${i.no}')" class="text-xs bg-red-600 text-white px-2 py-1 rounded" title="Download PDF">📥</button>
           <button onclick="openFakturModal('${i.no}')" class="text-xs ${fp ? 'bg-yellow-500' : 'bg-blue-600'} text-white px-2 py-1 rounded" title="${fp ? 'Ubah Faktur Pajak' : 'Pasang Faktur Pajak'}">🧾 ${fp ? 'Ubah' : 'Pasang'} FP</button>
         </div>
       </td>
     </tr>
   `;
-  }).join('') || '<tr><td colspan="8" class="text-center p-4 text-slate-400">Belum ada Invoice</td></tr>';
+  }).join('') || '<tr><td colspan="9" class="text-center p-4 text-slate-400">Belum ada Invoice</td></tr>';
+  updateInvoiceSelectionUI();
 }
 function renderJurnal() {
   document.querySelector('#tblJurnal tbody').innerHTML = DB.jurnal.slice().reverse().map(j => `
@@ -1572,14 +2271,12 @@ function getLabaRugiData() {
 function renderLabaRugi() {
   const select = document.getElementById('lrPeriode');
   if (select.options.length === 0) {
-    // Inisialisasi dropdown periode
     let html = `<option value="current">${periodLabel(DB.currentPeriod)} (Aktif)</option>`;
     DB.closedPeriods.forEach((p, idx) => {
-      html += `<option value="closed-${idx}">${periodLabel(p.periode)} (Closed)</option>`;
+      html += `<option value="closed-${idx}">${periodLabel(p.periode)} (${p.status || 'Closed'})</option>`;
     });
     select.innerHTML = html;
   }
-
   const val = select.value || 'current';
   let d;
   if (val === 'current') {
@@ -1589,7 +2286,6 @@ function renderLabaRugi() {
     const p = DB.closedPeriods[idx];
     d = { penjualan: p.penjualan, hpp: p.hpp, beban: p.beban, labaKotor: p.penjualan - p.hpp, labaBersih: p.labaBersih };
   }
-
   document.querySelector('#tblLabaRugi tbody').innerHTML = `
     <tr class="border-b"><td class="p-2 font-semibold">Pendapatan Penjualan</td><td class="p-2 text-right">${fmt(d.penjualan)}</td></tr>
     <tr class="border-b"><td class="p-2 pl-6">Harga Pokok Penjualan (HPP)</td><td class="p-2 text-right text-red-600">(${fmt(d.hpp)})</td></tr>
@@ -1605,20 +2301,14 @@ function getNeracaData() {
   const persediaan = DB.saldo['103'] || 0;
   const ppnMasukan = DB.saldo['104'] || 0;
   const totalAset = kas + piutang + persediaan + ppnMasukan;
-
   const hutang = -(DB.saldo['201'] || 0);
   const ppnKel = -(DB.saldo['202'] || 0);
   const modal = -(DB.saldo['301'] || 0);
   const labaDitahan = -(DB.saldo['303'] || 0);
-
-  // Setelah closing, akun 401/501/601 = 0 → labaBerjalan = 0
-  // Neraca tetap balance karena laba sudah dipindah ke Laba Ditahan (303)
   const labaBerjalan = getLabaRugiData().labaBersih;
-
   const totalKewajiban = hutang + ppnKel;
   const totalEkuitas = modal + labaDitahan + labaBerjalan;
   const totalPasiva = totalKewajiban + totalEkuitas;
-
   return {
     aset: [
       { nama: 'Kas / Bank', nilai: kas },
@@ -1642,19 +2332,15 @@ function getNeracaData() {
 function renderNeraca() {
   const d = getNeracaData();
   document.getElementById('neracaTgl').textContent = 'Per: ' + today();
-
   document.querySelector('#tblAset tbody').innerHTML =
     d.aset.map(a => `<tr class="border-b"><td class="p-2">${a.nama}</td><td class="p-2 text-right">${fmt(a.nilai)}</td></tr>`).join('') +
     `<tr class="bg-slate-50 font-bold"><td class="p-2">Total Aset</td><td class="p-2 text-right">${fmt(d.totalAset)}</td></tr>`;
-
   document.querySelector('#tblKewajiban tbody').innerHTML =
     d.kewajiban.map(k => `<tr class="border-b"><td class="p-2">${k.nama}</td><td class="p-2 text-right">${fmt(k.nilai)}</td></tr>`).join('') +
     d.ekuitas.map(e => `<tr class="border-b"><td class="p-2">${e.nama}</td><td class="p-2 text-right">${fmt(e.nilai)}</td></tr>`).join('') +
     `<tr class="bg-slate-50 font-bold"><td class="p-2">Total Kewajiban + Ekuitas</td><td class="p-2 text-right">${fmt(d.totalPasiva)}</td></tr>`;
-
   document.getElementById('neracaTotalAset').textContent = fmt(d.totalAset);
   document.getElementById('neracaTotalPasiva').textContent = fmt(d.totalPasiva);
-
   const diff = Math.abs(d.totalAset - d.totalPasiva);
   const status = document.getElementById('neracaStatus');
   if (diff < 1) { status.textContent = '✓ Balance'; status.className = 'text-center mt-2 text-green-600 font-semibold'; }
@@ -1686,14 +2372,16 @@ function renderClosing() {
   document.getElementById('closingHPP').textContent = fmt(d.hpp);
   document.getElementById('closingBeban').textContent = fmt(d.beban);
   document.getElementById('closingLaba').textContent = fmt(d.labaBersih);
-
   const btn = document.getElementById('btnClosing');
+  const btnUnlock = document.getElementById('btnUnlock');
   if (DB.isClosed) {
     btn.classList.add('opacity-50', 'cursor-not-allowed');
     btn.textContent = '🔒 Periode Sudah Ditutup';
+    btnUnlock.classList.remove('hidden');
   } else {
     btn.classList.remove('opacity-50', 'cursor-not-allowed');
     btn.textContent = '🔒 Proses Tutup Buku';
+    btnUnlock.classList.add('hidden');
   }
 }
 
@@ -1706,91 +2394,46 @@ function renderClosedPeriods() {
       <td class="p-2 text-right">${fmt(p.hpp)}</td>
       <td class="p-2 text-right">${fmt(p.beban)}</td>
       <td class="p-2 text-right font-semibold ${p.labaBersih >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(p.labaBersih)}</td>
+      <td class="p-2"><span class="badge ${p.status === 'REOPENED' ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'}">${p.status || 'CLOSED'}</span></td>
     </tr>
-  `).join('') || '<tr><td colspan="6" class="text-center p-4 text-slate-400">Belum ada periode tertutup</td></tr>';
+  `).join('') || '<tr><td colspan="7" class="text-center p-4 text-slate-400">Belum ada periode tertutup</td></tr>';
 }
 
-/* =========================================================
-   CLOSING (PERBAIKAN TOTAL)
-   ========================================================= */
-function doClosing() {
-  if (DB.isClosed) return alert('Periode sudah ditutup');
-  const d = getLabaRugiData();
+function renderAuditLog() {
+  const dari = document.getElementById('auditDari')?.value || '';
+  const sampai = document.getElementById('auditSampai')?.value || '';
+  const filterAksi = document.getElementById('auditFilterAksi')?.value || '';
 
-  if (Math.abs(d.penjualan) < 0.5 && Math.abs(d.hpp) < 0.5 && Math.abs(d.beban) < 0.5) {
-    return alert('Tidak ada transaksi untuk ditutup');
-  }
+  let filtered = DB.auditLog.slice().reverse();
+  if (dari) filtered = filtered.filter(a => a.waktu.slice(0,10) >= dari);
+  if (sampai) filtered = filtered.filter(a => a.waktu.slice(0,10) <= sampai);
+  if (filterAksi) filtered = filtered.filter(a => a.aksi === filterAksi);
 
-  const tglClosing = today();
-  const jurnalLines = [];
+  document.getElementById('auditTotal').textContent = DB.auditLog.length;
+  document.getElementById('auditClosing').textContent = DB.auditLog.filter(a => a.aksi === 'TUTUP BUKU').length;
+  document.getElementById('auditUnlock').textContent = DB.auditLog.filter(a => a.aksi === 'UNLOCK').length;
+  document.getElementById('auditKoreksi').textContent = DB.auditLog.filter(a => a.aksi === 'JURNAL KOREKSI').length;
 
-  // 1. Tutup SEMUA akun pendapatan
-  DB.coa.filter(c => c.tipe === 'Pendapatan' || c.tipe === 'Pendapatan Lain').forEach(c => {
-    const saldo = DB.saldo[c.kode] || 0;
-    if (Math.abs(saldo) < 0.5) return;
-    // Akun pendapatan saldo normal K → saldo di DB negatif
-    // Untuk menutup: debit sebesar saldo kredit
-    if (saldo < 0) {
-      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
-    } else {
-      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
-    }
-  });
-
-  // 2. Tutup SEMUA akun HPP & Beban
-  DB.coa.filter(c => c.tipe === 'HPP' || c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => {
-    const saldo = DB.saldo[c.kode] || 0;
-    if (Math.abs(saldo) < 0.5) return;
-    if (saldo > 0) {
-      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
-    } else {
-      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
-    }
-  });
-
-  // 3. Hitung selisih → ke Laba Ditahan
-  // Total debit - total kredit dari lines di atas
-  let totalDebitClosing = jurnalLines.reduce((s, l) => s + l.debit, 0);
-  let totalKreditClosing = jurnalLines.reduce((s, l) => s + l.kredit, 0);
-  const selisih = totalDebitClosing - totalKreditClosing;
-
-  // Jika laba: debit < kredit → kurangi Laba Ditahan (kredit Laba Ditahan)
-  // Jika rugi: debit > kredit → tambah Laba Ditahan (debit Laba Ditahan)
-  if (selisih > 0) {
-    // Rugi → Laba Ditahan berkurang (debit Laba Ditahan)
-    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: selisih, kredit: 0 });
-  } else if (selisih < 0) {
-    // Laba → Laba Ditahan bertambah (kredit Laba Ditahan)
-    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: 0, kredit: -selisih });
-  }
-
-  // Post jurnal closing
-  if (jurnalLines.length > 0) {
-    postJurnal(tglClosing, `Tutup Buku ${periodLabel(DB.currentPeriod)}`, jurnalLines);
-  }
-
-  // Snapshot
-  DB.closedPeriods.push({
-    periode: DB.currentPeriod,
-    tglClosing,
-    penjualan: d.penjualan,
-    hpp: d.hpp,
-    beban: d.beban,
-    labaBersih: d.labaBersih,
-  });
-
-  // Reset dropdown laba rugi agar refresh
-  document.getElementById('lrPeriode').innerHTML = '';
-
-  DB.isClosed = true;
-  renderAll();
-
-  document.getElementById('closingResult').innerHTML = `
-    <div class="bg-green-50 border-l-4 border-green-500 p-3 text-sm">
-      ✓ <strong>Tutup buku ${periodLabel(DB.currentPeriod)} berhasil!</strong><br>
-      Laba Bersih: <strong>${fmt(d.labaBersih)}</strong> telah dipindahkan ke Laba Ditahan.<br>
-      Periode dikunci. Snapshot disimpan untuk laporan historis.
-    </div>`;
+  document.querySelector('#tblAuditLog tbody').innerHTML = filtered.map(a => {
+    const colorMap = {
+      'TUTUP BUKU': 'bg-red-100 text-red-700',
+      'UNLOCK': 'bg-orange-100 text-orange-700',
+      'JURNAL KOREKSI': 'bg-blue-100 text-blue-700',
+      'FAKTUR PAJAK': 'bg-green-100 text-green-700',
+      'MASTER DATA': 'bg-slate-100 text-slate-700',
+      'SISTEM': 'bg-purple-100 text-purple-700',
+    };
+    return `
+      <tr class="border-b text-xs">
+        <td class="p-2 font-mono whitespace-nowrap">${a.waktu}</td>
+        <td class="p-2"><span class="badge ${colorMap[a.aksi] || 'bg-slate-100'}">${a.aksi}</span></td>
+        <td class="p-2">${a.user}</td>
+        <td class="p-2">${a.detail}</td>
+        <td class="p-2 text-xs text-slate-500">${a.sebelum}</td>
+        <td class="p-2 text-xs text-slate-700">${a.sesudah}</td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="6" class="text-center p-4 text-slate-400">Belum ada aktivitas</td></tr>';
 }
 
 /* =========================================================
@@ -1986,6 +2629,8 @@ function seed() {
     { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: 800000 },
   ]);
 
+  logAudit('SISTEM', 'Inisialisasi awal sistem dengan data demo', '-', `Customer: ${DB.customers.length}, Supplier: ${DB.suppliers.length}, Produk: ${DB.products.length}`);
+
   document.getElementById('lapJualDari').value = '2026-10-01';
   document.getElementById('lapJualSampai').value = '2026-10-31';
   document.getElementById('lapBeliDari').value = '2026-10-01';
@@ -2081,7 +2726,7 @@ function doInvoice(soNo, tgl) {
    ========================================================= */
 try {
   seed();
-  console.log('✅ Seed OK. Produk:', DB.products.length, 'Customer:', DB.customers.length);
+  console.log('✅ Seed OK. Produk:', DB.products.length, 'Customer:', DB.customers.length, 'Invoice:', DB.invoice.length, 'Jurnal:', DB.jurnal.length);
   renderAll();
   renderLapPenjualan();
   renderLapPembelian();
