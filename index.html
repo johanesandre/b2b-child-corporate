@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Penjualan - PT PKP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .sidebar-item { transition: all 0.2s; }
+  .sidebar-item:hover { background: rgba(255,255,255,0.1); }
+  .sidebar-item.active { background: #2563eb; border-left: 4px solid #60a5fa; }
+  .card { transition: transform 0.2s, box-shadow 0.2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+  .modal { display: none; }
+  .modal.active { display: flex; }
+  table { border-collapse: collapse; }
+  th { font-weight: 600; }
+  .badge { padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+  .line-row input { font-size: 12px; }
+  .disabled-overlay { opacity: 0.5; pointer-events: none; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
+    #invoicePrintArea { position: absolute; left: 0; top: 0; width: 148mm; min-height: 210mm; padding: 10mm; font-size: 11px; }
+    @page { size: A5 portrait; margin: 0; }
+  }
+  .invoice-paper { width: 148mm; min-height: 210mm; padding: 10mm; background: white; font-size: 11px; color: #000; }
+  .invoice-paper table { width: 100%; }
+  .invoice-paper .header-title { font-size: 18px; font-weight: bold; letter-spacing: 2px; }
+  .invoice-paper .line-item th { border-bottom: 1px solid #000; padding: 4px; text-align: left; font-size: 10px; }
+  .invoice-paper .line-item td { padding: 4px; border-bottom: 1px dotted #999; }
+</style>
+</head>
+<body class="bg-gray-100">
+
+<div class="flex h-screen overflow-hidden">
+
+  <aside class="w-64 bg-slate-800 text-white flex flex-col">
+    <div class="p-4 border-b border-slate-700">
+      <h1 class="text-xl font-bold">📊 ERP PKP</h1>
+      <p class="text-xs text-slate-400 mt-1">Sales → Financial Report</p>
+      <div class="mt-2 text-xs bg-slate-700 px-2 py-1 rounded inline-block" id="periodBadge">Periode: Okt 2026</div>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-2 text-sm">
+      <div class="text-slate-400 text-xs uppercase px-3 py-2">Dashboard</div>
+      <a href="#" onclick="showPage('dashboard', this)" class="sidebar-item active flex items-center gap-2 px-3 py-2 rounded"><span>🏠</span> Dashboard</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Master</div>
+      <a href="#" onclick="showPage('customer', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>👥</span> Customer</a>
+      <a href="#" onclick="showPage('supplier', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🏭</span> Supplier</a>
+      <a href="#" onclick="showPage('produk', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📦</span> Produk</a>
+      <a href="#" onclick="showPage('coa', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📋</span> Chart of Account</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Pembelian</div>
+      <a href="#" onclick="showPage('po', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🛒</span> Purchase Order</a>
+      <a href="#" onclick="showPage('grn', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📥</span> Goods Receipt</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Penjualan</div>
+      <a href="#" onclick="showPage('so', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📝</span> Sales Order</a>
+      <a href="#" onclick="showPage('invoice', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🧾</span> Invoice</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Akuntansi</div>
+      <a href="#" onclick="showPage('jurnal', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📚</span> Jurnal Umum</a>
+      <a href="#" onclick="showPage('buku-besar', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📖</span> Buku Besar</a>
+      <a href="#" onclick="showPage('trial', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>⚖️</span> Trial Balance</a>
+
+      <div class="text-slate-400 text-xs uppercase px-3 py-2 mt-2">Laporan</div>
+      <a href="#" onclick="showPage('lap-penjualan', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>💰</span> Lap. Penjualan</a>
+      <a href="#" onclick="showPage('lap-pembelian', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🛍️</span> Lap. Pembelian</a>
+      <a href="#" onclick="showPage('labarugi', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>📈</span> Laba Rugi</a>
+      <a href="#" onclick="showPage('neraca', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🏛️</span> Neraca</a>
+      <a href="#" onclick="showPage('aruskas', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>💵</span> Arus Kas</a>
+      <a href="#" onclick="showPage('tutupbuku', this)" class="sidebar-item flex items-center gap-2 px-3 py-2 rounded"><span>🔒</span> Tutup Buku</a>
+    </nav>
+    <div class="p-3 border-t border-slate-700 text-xs text-slate-400">Logged in: <span class="text-white font-semibold">admin</span></div>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto">
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+      <div class="flex justify-between items-center px-6 py-3">
+        <h2 id="pageTitle" class="text-lg font-semibold text-slate-800">Dashboard</h2>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="text-slate-500" id="todayDate"></span>
+          <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">A</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="p-6">
+
+      <section id="page-dashboard" class="page">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="card bg-white rounded-lg p-4 shadow"><div class="text-slate-500 text-xs">Total Penjualan</div><div class="text-2xl font-bold text-blue-600" id="kpiPenjualan">Rp 0</div><div class="text-xs text-green-600 mt-1">↑ Cash</div></div>
+          <div class="card bg-white rounded-lg p-4 shadow"><div class="text-slate-500 text-xs">Total Pembelian</div><div class="text-2xl font-bold text-orange-600" id="kpiPembelian">Rp 0</div><div class="text-xs text-slate-400 mt-1">+ PPN Masukan</div></div>
+          <div class="card bg-white rounded-lg p-4 shadow"><div class="text-slate-500 text-xs">Laba Kotor</div><div class="text-2xl font-bold text-green-600" id="kpiLaba">Rp 0</div><div class="text-xs text-slate-400 mt-1">Penjualan − HPP</div></div>
+          <div class="card bg-white rounded-lg p-4 shadow"><div class="text-slate-500 text-xs">Saldo Kas</div><div class="text-2xl font-bold text-slate-700" id="kpiKas">Rp 0</div><div class="text-xs text-slate-400 mt-1">Bank Tunggal</div></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-white rounded-lg p-4 shadow"><h3 class="font-semibold mb-3">Tren Penjualan vs Pembelian</h3><canvas id="chartTren" height="120"></canvas></div>
+          <div class="bg-white rounded-lg p-4 shadow"><h3 class="font-semibold mb-3">Stok Saat Ini (Target: 0)</h3><canvas id="chartStok" height="120"></canvas></div>
+        </div>
+        <div class="bg-white rounded-lg p-4 shadow">
+          <h3 class="font-semibold mb-3">Transaksi Terakhir</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Tanggal</th><th class="text-left p-2">No. Dokumen</th><th class="text-left p-2">Jenis</th><th class="text-left p-2">Keterangan</th><th class="text-right p-2">Jumlah</th></tr>
+            </thead>
+            <tbody id="tblTransaksi"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-customer" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Daftar Customer (Non-PKP)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblCustomer','customer')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalCustomer')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Tambah</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblCustomer">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Kode</th><th class="text-left p-2">Nama</th><th class="text-left p-2">Alamat</th><th class="text-left p-2">NPWP / KTP</th><th class="text-left p-2">Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-supplier" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Daftar Supplier (PKP)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblSupplier','supplier')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalSupplier')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Tambah</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblSupplier">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Kode</th><th class="text-left p-2">Nama</th><th class="text-left p-2">Alamat</th><th class="text-left p-2">NPWP</th><th class="text-left p-2">Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-produk" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Master Produk (Moving Average)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblProduk','produk')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalProduk')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Tambah</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblProduk">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Kode</th><th class="text-left p-2">Nama</th><th class="text-right p-2">Qty</th><th class="text-right p-2">HPP Avg</th><th class="text-right p-2">Nilai Stok</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-coa" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Chart of Account</h3>
+            <button onclick="exportExcel('tblCOA','coa')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+          </div>
+          <table class="w-full text-sm" id="tblCOA">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Kode</th><th class="text-left p-2">Nama Akun</th><th class="text-left p-2">Kategori</th><th class="text-left p-2">Saldo Normal</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-po" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Purchase Order (Multi Product)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblPO','purchase-order')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalPO')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Buat PO</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblPO">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">No. PO</th><th class="text-left p-2">Tanggal</th><th class="text-left p-2">Supplier</th><th class="text-right p-2">Total Item</th><th class="text-right p-2">Total</th><th class="text-left p-2">Status</th><th class="text-center p-2">Aksi</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-grn" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Goods Receipt</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblGRN','goods-receipt')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalGRN')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Terima Barang</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblGRN">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">No. GRN</th><th class="text-left p-2">Tanggal</th><th class="text-left p-2">Ref PO</th><th class="text-right p-2">DPP</th><th class="text-right p-2">PPN Masukan</th><th class="text-right p-2">Total Bayar</th><th class="text-center p-2">Aksi</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-so" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Sales Order (Multi Product)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblSO','sales-order')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalSO')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Buat SO</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblSO">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">No. SO</th><th class="text-left p-2">Tanggal</th><th class="text-left p-2">Customer</th><th class="text-right p-2">Total Item</th><th class="text-right p-2">Total</th><th class="text-left p-2">Status</th><th class="text-center p-2">Aksi</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-invoice" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Invoice Penjualan (Cash)</h3>
+            <div class="flex gap-2">
+              <button onclick="exportExcel('tblInvoice','invoice')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+              <button onclick="openModal('modalInvoice')" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm btn-add">+ Buat Invoice</button>
+            </div>
+          </div>
+          <table class="w-full text-sm" id="tblInvoice">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr>
+                <th class="text-left p-2">No. Invoice</th>
+                <th class="text-left p-2">Tanggal</th>
+                <th class="text-left p-2">Customer</th>
+                <th class="text-right p-2">Penjualan</th>
+                <th class="text-right p-2">HPP</th>
+                <th class="text-right p-2">Laba</th>
+                <th class="text-left p-2">Faktur Pajak</th>
+                <th class="text-center p-2">Aksi</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-jurnal" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Jurnal Umum</h3>
+            <button onclick="exportExcel('tblJurnal','jurnal-umum')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+          </div>
+          <table class="w-full text-sm" id="tblJurnal">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Tanggal</th><th class="text-left p-2">No. Jurnal</th><th class="text-left p-2">Keterangan</th><th class="text-left p-2">Akun</th><th class="text-right p-2">Debit</th><th class="text-right p-2">Kredit</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-buku-besar" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Buku Besar</h3>
+            <button onclick="exportBukuBesar()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+          </div>
+          <div id="bukuBesarContainer"></div>
+        </div>
+      </section>
+
+      <section id="page-trial" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between mb-4">
+            <h3 class="font-semibold">Trial Balance</h3>
+            <button onclick="exportExcel('tblTrial','trial-balance')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+          </div>
+          <table class="w-full text-sm" id="tblTrial">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr><th class="text-left p-2">Kode</th><th class="text-left p-2">Nama Akun</th><th class="text-right p-2">Debit</th><th class="text-right p-2">Kredit</th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot class="bg-slate-200 font-bold">
+              <tr><td colspan="2" class="text-right p-2">TOTAL</td><td class="text-right p-2" id="totalDebit">Rp 0</td><td class="text-right p-2" id="totalKredit">Rp 0</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-lap-penjualan" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <h3 class="font-semibold">Laporan Penjualan Periodik</h3>
+            <div class="flex gap-2 items-center">
+              <label class="text-xs">Dari</label><input type="date" id="lapJualDari" class="border rounded p-1.5 text-sm">
+              <label class="text-xs">Sampai</label><input type="date" id="lapJualSampai" class="border rounded p-1.5 text-sm">
+              <button onclick="renderLapPenjualan()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🔍 Tampilkan</button>
+              <button onclick="exportLapPenjualan()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+            <div class="bg-blue-50 p-3 rounded"><div class="text-xs text-slate-500">Total Penjualan</div><div class="font-bold text-blue-700" id="lapJualTotal">Rp 0</div></div>
+            <div class="bg-orange-50 p-3 rounded"><div class="text-xs text-slate-500">Total HPP</div><div class="font-bold text-orange-700" id="lapJualHPP">Rp 0</div></div>
+            <div class="bg-green-50 p-3 rounded"><div class="text-xs text-slate-500">Laba Kotor</div><div class="font-bold text-green-700" id="lapJualLaba">Rp 0</div></div>
+          </div>
+          <div class="mb-4"><h4 class="font-semibold text-sm mb-2">Rekap per Customer</h4>
+            <table class="w-full text-sm" id="tblLapJualCust">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Customer</th><th class="text-right p-2">Total</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="mb-4"><h4 class="font-semibold text-sm mb-2">Rekap per Produk</h4>
+            <table class="w-full text-sm" id="tblLapJualProd">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Produk</th><th class="text-right p-2">Qty</th><th class="text-right p-2">Penjualan</th><th class="text-right p-2">HPP</th><th class="text-right p-2">Laba</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div><h4 class="font-semibold text-sm mb-2">Detail Transaksi</h4>
+            <table class="w-full text-sm" id="tblLapJualDetail">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Tanggal</th><th class="text-left p-2">No. Invoice</th><th class="text-left p-2">Customer</th><th class="text-left p-2">Produk</th><th class="text-right p-2">Qty</th><th class="text-right p-2">Harga</th><th class="text-right p-2">Total</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-lap-pembelian" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow">
+          <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <h3 class="font-semibold">Laporan Pembelian Periodik</h3>
+            <div class="flex gap-2 items-center">
+              <label class="text-xs">Dari</label><input type="date" id="lapBeliDari" class="border rounded p-1.5 text-sm">
+              <label class="text-xs">Sampai</label><input type="date" id="lapBeliSampai" class="border rounded p-1.5 text-sm">
+              <button onclick="renderLapPembelian()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🔍 Tampilkan</button>
+              <button onclick="exportLapPembelian()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+            <div class="bg-orange-50 p-3 rounded"><div class="text-xs text-slate-500">Total DPP</div><div class="font-bold text-orange-700" id="lapBeliTotal">Rp 0</div></div>
+            <div class="bg-yellow-50 p-3 rounded"><div class="text-xs text-slate-500">Total PPN Masukan</div><div class="font-bold text-yellow-700" id="lapBeliPPN">Rp 0</div></div>
+            <div class="bg-red-50 p-3 rounded"><div class="text-xs text-slate-500">Total Bayar</div><div class="font-bold text-red-700" id="lapBeliBayar">Rp 0</div></div>
+          </div>
+          <div class="mb-4"><h4 class="font-semibold text-sm mb-2">Rekap per Supplier</h4>
+            <table class="w-full text-sm" id="tblLapBeliSup">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Supplier</th><th class="text-right p-2">Total</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="mb-4"><h4 class="font-semibold text-sm mb-2">Rekap per Produk</h4>
+            <table class="w-full text-sm" id="tblLapBeliProd">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Produk</th><th class="text-right p-2">Qty</th><th class="text-right p-2">Nilai</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div><h4 class="font-semibold text-sm mb-2">Detail Transaksi</h4>
+            <table class="w-full text-sm" id="tblLapBeliDetail">
+              <thead class="bg-slate-100 text-slate-600"><tr><th class="text-left p-2">Tanggal</th><th class="text-left p-2">No. GRN</th><th class="text-left p-2">Supplier</th><th class="text-left p-2">Produk</th><th class="text-right p-2">Qty</th><th class="text-right p-2">Harga</th><th class="text-right p-2">Total</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-labarugi" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow max-w-2xl mx-auto">
+          <div class="flex justify-between mb-4">
+            <div class="text-center flex-1">
+              <h3 class="font-bold text-lg">PT PKP</h3>
+              <p class="text-sm text-slate-600">Laporan Laba Rugi</p>
+              <select id="lrPeriode" class="text-xs border rounded mt-1 px-2 py-1" onchange="renderLabaRugi()"></select>
+            </div>
+            <button onclick="exportExcel('tblLabaRugi','laba-rugi')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm self-start">⬇ Excel</button>
+          </div>
+          <table class="w-full text-sm" id="tblLabaRugi"><tbody></tbody></table>
+        </div>
+      </section>
+
+      <section id="page-neraca" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow max-w-4xl mx-auto">
+          <div class="flex justify-between mb-4">
+            <div class="text-center flex-1"><h3 class="font-bold text-lg">PT PKP</h3><p class="text-sm text-slate-600">Neraca</p><p class="text-xs text-slate-500" id="neracaTgl">Per: -</p></div>
+            <button onclick="exportNeraca()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm self-start">⬇ Excel</button>
+          </div>
+          <div class="grid grid-cols-2 gap-6">
+            <div><h4 class="font-semibold bg-slate-100 p-2">ASET</h4><table class="w-full text-sm mt-2" id="tblAset"><tbody></tbody></table></div>
+            <div><h4 class="font-semibold bg-slate-100 p-2">KEWAJIBAN & EKUITAS</h4><table class="w-full text-sm mt-2" id="tblKewajiban"><tbody></tbody></table></div>
+          </div>
+          <div class="mt-4 p-3 bg-blue-50 rounded text-sm">
+            <div class="flex justify-between font-bold"><span>Total Aset</span><span id="neracaTotalAset">Rp 0</span></div>
+            <div class="flex justify-between font-bold"><span>Total Kewajiban + Ekuitas</span><span id="neracaTotalPasiva">Rp 0</span></div>
+            <div id="neracaStatus" class="text-center mt-2 font-semibold"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-aruskas" class="page hidden">
+        <div class="bg-white rounded-lg p-4 shadow max-w-2xl mx-auto">
+          <div class="flex justify-between mb-4">
+            <div class="text-center flex-1"><h3 class="font-bold text-lg">PT PKP</h3><p class="text-sm text-slate-600">Laporan Arus Kas</p></div>
+            <button onclick="exportExcel('tblArusKas','arus-kas')" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm self-start">⬇ Excel</button>
+          </div>
+          <table class="w-full text-sm" id="tblArusKas"><tbody></tbody></table>
+        </div>
+      </section>
+
+      <section id="page-tutupbuku" class="page hidden">
+        <div class="max-w-4xl mx-auto">
+          <div class="bg-white rounded-lg p-4 shadow mb-4">
+            <h3 class="font-semibold mb-4">Tutup Buku Bulanan</h3>
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4 text-sm">
+              <strong>Perhatian:</strong> Tutup buku akan:
+              <ul class="list-disc ml-5 mt-1">
+                <li>Memindahkan saldo Penjualan, HPP, dan Beban ke Laba Ditahan</li>
+                <li>Menyimpan snapshot laporan periode ini</li>
+                <li>Mengunci periode agar tidak bisa input transaksi baru</li>
+                <li>Membuat periode baru otomatis</li>
+              </ul>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="bg-slate-50 p-3 rounded">
+                <div class="text-xs text-slate-500">Periode Aktif</div>
+                <div class="font-bold text-lg" id="closingPeriode">-</div>
+              </div>
+              <div class="bg-slate-50 p-3 rounded">
+                <div class="text-xs text-slate-500">Status</div>
+                <div class="font-bold text-lg" id="closingStatus">-</div>
+              </div>
+            </div>
+            <table class="w-full text-sm mb-4"><tbody>
+              <tr><td class="p-2">Total Penjualan</td><td class="p-2 font-semibold" id="closingPenjualan">Rp 0</td></tr>
+              <tr><td class="p-2">Total HPP</td><td class="p-2 font-semibold" id="closingHPP">Rp 0</td></tr>
+              <tr><td class="p-2">Total Beban</td><td class="p-2 font-semibold" id="closingBeban">Rp 0</td></tr>
+              <tr class="bg-green-50"><td class="p-2 font-bold">Laba Bersih</td><td class="p-2 font-bold text-green-700" id="closingLaba">Rp 0</td></tr>
+            </tbody></table>
+            <div class="flex gap-2">
+              <button onclick="doClosing()" id="btnClosing" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">🔒 Proses Tutup Buku</button>
+              <button onclick="resetData()" class="bg-slate-500 text-white px-4 py-2 rounded hover:bg-slate-600">🔄 Reset Demo</button>
+            </div>
+            <div id="closingResult" class="mt-4"></div>
+          </div>
+
+          <div class="bg-white rounded-lg p-4 shadow">
+            <h3 class="font-semibold mb-3">📚 Riwayat Periode Tertutup (Snapshot)</h3>
+            <table class="w-full text-sm" id="tblClosedPeriods">
+              <thead class="bg-slate-100 text-slate-600">
+                <tr>
+                  <th class="text-left p-2">Periode</th>
+                  <th class="text-left p-2">Tgl Closing</th>
+                  <th class="text-right p-2">Penjualan</th>
+                  <th class="text-right p-2">HPP</th>
+                  <th class="text-right p-2">Beban</th>
+                  <th class="text-right p-2">Laba Bersih</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODALS -->
+<div id="modalCustomer" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[420px]">
+    <h3 class="font-bold mb-3">Tambah Customer</h3>
+    <label class="text-xs font-semibold">Nama Customer *</label>
+    <input id="custNama" placeholder="Contoh: Toko Sinar Jaya" class="border w-full p-2 rounded mb-2 text-sm">
+    <label class="text-xs font-semibold">Alamat *</label>
+    <textarea id="custAlamat" rows="2" placeholder="Jl. Contoh No. 123, Kota" class="border w-full p-2 rounded mb-2 text-sm"></textarea>
+    <label class="text-xs font-semibold">NPWP / No. KTP</label>
+    <input id="custNPWP" placeholder="NPWP atau No. KTP" class="border w-full p-2 rounded mb-3 text-sm">
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalCustomer')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addCustomer()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalSupplier" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[420px]">
+    <h3 class="font-bold mb-3">Tambah Supplier</h3>
+    <label class="text-xs font-semibold">Nama Supplier *</label>
+    <input id="supNama" placeholder="Contoh: PT Sumber Makmur" class="border w-full p-2 rounded mb-2 text-sm">
+    <label class="text-xs font-semibold">Alamat *</label>
+    <textarea id="supAlamat" rows="2" placeholder="Jl. Contoh No. 123, Kota" class="border w-full p-2 rounded mb-2 text-sm"></textarea>
+    <label class="text-xs font-semibold">NPWP</label>
+    <input id="supNPWP" placeholder="00.000.000.0-000.000" class="border w-full p-2 rounded mb-3 text-sm">
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalSupplier')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addSupplier()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalProduk" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-96">
+    <h3 class="font-bold mb-3">Tambah Produk</h3>
+    <input id="prodNama" placeholder="Nama Produk" class="border w-full p-2 rounded mb-2 text-sm">
+    <input id="prodSatuan" placeholder="Satuan (pcs/box)" class="border w-full p-2 rounded mb-3 text-sm">
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalProduk')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addProduk()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalPO" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[800px] max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold mb-3">Buat Purchase Order</h3>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div><label class="text-xs font-semibold">Supplier</label><select id="poSupplier" class="border w-full p-2 rounded text-sm"></select></div>
+      <div><label class="text-xs font-semibold">Tanggal</label><input id="poTanggal" type="date" class="border w-full p-2 rounded text-sm"></div>
+    </div>
+    <div class="border rounded mb-3">
+      <div class="bg-slate-100 p-2 flex justify-between items-center">
+        <span class="font-semibold text-sm">Item Produk</span>
+        <button onclick="addPOLine()" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">+ Tambah Baris</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs"><tr><th class="text-left p-1">Produk</th><th class="text-right p-1 w-20">Qty</th><th class="text-right p-1 w-28">Harga</th><th class="text-right p-1 w-28">Subtotal</th><th class="w-8"></th></tr></thead>
+        <tbody id="poLines"></tbody>
+        <tfoot class="bg-slate-50 font-semibold text-sm"><tr><td colspan="3" class="text-right p-2">Total DPP</td><td class="text-right p-2" id="poTotal">Rp 0</td><td></td></tr></tfoot>
+      </table>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalPO')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addPO()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan PO</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalGRN" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[600px]">
+    <h3 class="font-bold mb-3">Terima Barang (GRN)</h3>
+    <label class="text-xs font-semibold">Pilih PO</label>
+    <select id="grnPO" class="border w-full p-2 rounded mb-3 text-sm"></select>
+    <div id="grnPreview" class="bg-slate-50 p-3 rounded mb-3 text-xs"></div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalGRN')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addGRN()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Terima & Posting</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalSO" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[800px] max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold mb-3">Buat Sales Order</h3>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div><label class="text-xs font-semibold">Customer</label><select id="soCustomer" class="border w-full p-2 rounded text-sm"></select></div>
+      <div><label class="text-xs font-semibold">Tanggal</label><input id="soTanggal" type="date" class="border w-full p-2 rounded text-sm"></div>
+    </div>
+    <div class="border rounded mb-3">
+      <div class="bg-slate-100 p-2 flex justify-between items-center">
+        <span class="font-semibold text-sm">Item Produk</span>
+        <button onclick="addSOLine()" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">+ Tambah Baris</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs"><tr><th class="text-left p-1">Produk</th><th class="text-right p-1 w-20">Qty</th><th class="text-right p-1 w-28">Harga Jual</th><th class="text-right p-1 w-28">Subtotal</th><th class="w-8"></th></tr></thead>
+        <tbody id="soLines"></tbody>
+        <tfoot class="bg-slate-50 font-semibold text-sm"><tr><td colspan="3" class="text-right p-2">Total</td><td class="text-right p-2" id="soTotal">Rp 0</td><td></td></tr></tfoot>
+      </table>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalSO')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addSO()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan SO</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalInvoice" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[600px]">
+    <h3 class="font-bold mb-3">Terbitkan Invoice (Cash)</h3>
+    <label class="text-xs font-semibold">Pilih SO</label>
+    <select id="invSO" class="border w-full p-2 rounded mb-3 text-sm"></select>
+    <div id="invPreview" class="bg-slate-50 p-3 rounded mb-3 text-xs"></div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalInvoice')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="addInvoice()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Terbitkan & Posting</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FAKTUR PAJAK -->
+<div id="modalFakturPajak" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-[480px]">
+    <h3 class="font-bold mb-3">🧾 Pasang Faktur Pajak</h3>
+    <div id="fakturInfo" class="bg-slate-50 p-3 rounded mb-3 text-xs"></div>
+    <label class="text-xs font-semibold">Nomor Faktur Pajak *</label>
+    <input id="fakturNomor" placeholder="010.000-26.00000001" class="border w-full p-2 rounded mb-3 text-sm">
+
+    <label class="text-xs font-semibold">Pembulatan (Rp)</label>
+    <div class="text-xs text-slate-500 mb-1">Biarkan 0 jika tidak ada pembulatan. Jika diisi, nilai invoice otomatis mengikuti.</div>
+    <input id="fakturPembulatan" type="number" placeholder="0" class="border w-full p-2 rounded mb-1 text-sm" oninput="previewFakturPembulatan()">
+    <div id="fakturPembulatanInfo" class="text-xs mb-3"></div>
+
+    <div class="bg-blue-50 p-3 rounded mb-3 text-sm">
+      <div class="flex justify-between"><span>Nilai Invoice Sebelum</span><span id="fakturSebelum" class="font-semibold">Rp 0</span></div>
+      <div class="flex justify-between"><span>Pembulatan</span><span id="fakturDelta" class="font-semibold">Rp 0</span></div>
+      <div class="flex justify-between border-t border-blue-200 mt-1 pt-1"><span class="font-bold">Nilai Invoice Setelah</span><span id="fakturSesudah" class="font-bold text-blue-700">Rp 0</span></div>
+    </div>
+
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeModal('modalFakturPajak')" class="px-3 py-1.5 text-sm rounded bg-slate-200">Batal</button>
+      <button onclick="saveFakturPajak()" class="px-3 py-1.5 text-sm rounded bg-blue-600 text-white">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalInvoicePrint" class="modal fixed inset-0 bg-black/70 items-center justify-center z-50 overflow-y-auto py-6">
+  <div class="bg-white rounded-lg p-4 max-w-3xl w-full">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-bold">Preview Invoice (A5 Portrait)</h3>
+      <div class="flex gap-2">
+        <button onclick="window.print()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🖨 Cetak / PDF</button>
+        <button onclick="closeModal('modalInvoicePrint')" class="bg-slate-300 px-3 py-1.5 rounded text-sm">Tutup</button>
+      </div>
+    </div>
+    <div class="bg-slate-100 p-4 overflow-x-auto">
+      <div id="invoicePrintArea" class="invoice-paper mx-auto shadow-lg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   STATE
+   ========================================================= */
+const DB = {
+  customers: [], suppliers: [], products: [],
+  coa: [
+    { kode: '101', nama: 'Kas / Bank', tipe: 'Aset Lancar', normal: 'D' },
+    { kode: '102', nama: 'Piutang Dagang', tipe: 'Aset Lancar', normal: 'D' },
+    { kode: '103', nama: 'Persediaan Barang Dagang', tipe: 'Aset Lancar', normal: 'D' },
+    { kode: '104', nama: 'PPN Masukan', tipe: 'Aset Lancar', normal: 'D' },
+    { kode: '105', nama: 'Perlengkapan', tipe: 'Aset Lancar', normal: 'D' },
+    { kode: '121', nama: 'Peralatan', tipe: 'Aset Tetap', normal: 'D' },
+    { kode: '122', nama: 'Akumulasi Penyusutan Peralatan', tipe: 'Aset Tetap', normal: 'K' },
+    { kode: '201', nama: 'Hutang Dagang', tipe: 'Kewajiban Lancar', normal: 'K' },
+    { kode: '202', nama: 'PPN Keluaran', tipe: 'Kewajiban Lancar', normal: 'K' },
+    { kode: '203', nama: 'Hutang Pajak (PPh 21/23)', tipe: 'Kewajiban Lancar', normal: 'K' },
+    { kode: '301', nama: 'Modal Disetor', tipe: 'Ekuitas', normal: 'K' },
+    { kode: '302', nama: 'Prive / Dividen', tipe: 'Ekuitas', normal: 'D' },
+    { kode: '303', nama: 'Laba Ditahan', tipe: 'Ekuitas', normal: 'K' },
+    { kode: '401', nama: 'Penjualan', tipe: 'Pendapatan', normal: 'K' },
+    { kode: '402', nama: 'Retur Penjualan', tipe: 'Pendapatan', normal: 'D' },
+    { kode: '403', nama: 'Diskon Penjualan', tipe: 'Pendapatan', normal: 'D' },
+    { kode: '490', nama: 'Pendapatan Lain-lain', tipe: 'Pendapatan Lain', normal: 'K' },
+    { kode: '501', nama: 'Harga Pokok Penjualan (HPP)', tipe: 'HPP', normal: 'D' },
+    { kode: '502', nama: 'Retur Pembelian', tipe: 'HPP', normal: 'K' },
+    { kode: '503', nama: 'Diskon Pembelian', tipe: 'HPP', normal: 'K' },
+    { kode: '601', nama: 'Beban Gaji & Tunjangan', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '602', nama: 'Beban Sewa', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '603', nama: 'Beban Listrik, Air & Telepon', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '604', nama: 'Beban Transportasi', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '605', nama: 'Beban Perlengkapan', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '606', nama: 'Beban Penyusutan', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '607', nama: 'Beban Administrasi & Umum', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '608', nama: 'Beban Pajak & Perizinan', tipe: 'Beban Operasional', normal: 'D' },
+    { kode: '701', nama: 'Beban Bunga', tipe: 'Beban Lain', normal: 'D' },
+  ],
+  po: [], grn: [], so: [], invoice: [], jurnal: [], saldo: {},
+  closedPeriods: [], // Snapshot periode tertutup
+  currentPeriod: '2026-10',
+  isClosed: false,
+  counter: { cust: 0, sup: 0, prod: 0, po: 0, grn: 0, so: 0, inv: 0, jurnal: 0 },
+};
+
+const fmt = (n) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+const fmtNum = (n) => Math.round(n || 0).toLocaleString('id-ID');
+const today = () => new Date().toISOString().slice(0,10);
+const periodLabel = (p) => {
+  const [y, m] = p.split('-');
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return bulan[parseInt(m)-1] + ' ' + y;
+};
+
+/* =========================================================
+   NAV
+   ========================================================= */
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const target = document.getElementById('page-' + name);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const titles = {
+    dashboard: 'Dashboard', customer: 'Customer', supplier: 'Supplier', produk: 'Produk',
+    coa: 'Chart of Account', po: 'Purchase Order', grn: 'Goods Receipt', so: 'Sales Order',
+    invoice: 'Invoice Penjualan', jurnal: 'Jurnal Umum', 'buku-besar': 'Buku Besar',
+    trial: 'Trial Balance', 'lap-penjualan': 'Laporan Penjualan', 'lap-pembelian': 'Laporan Pembelian',
+    labarugi: 'Laba Rugi', neraca: 'Neraca', aruskas: 'Arus Kas', tutupbuku: 'Tutup Buku'
+  };
+  document.getElementById('pageTitle').textContent = titles[name] || name;
+  try { renderAll(); } catch(e) { console.error('renderAll error:', e); }
+}
+
+function openModal(id) {
+  if (DB.isClosed) {
+    if (['modalPO','modalGRN','modalSO','modalInvoice'].includes(id)) {
+      return alert('🔒 Periode sudah ditutup.\n\nSilakan buka periode baru (fitur akan datang) atau reset demo.');
+    }
+  }
+  if (id === 'modalPO') {
+    document.getElementById('poSupplier').innerHTML = DB.suppliers.map(s => `<option value="${s.kode}">${s.nama}</option>`).join('');
+    document.getElementById('poTanggal').value = today();
+    document.getElementById('poLines').innerHTML = '';
+    addPOLine();
+  }
+  if (id === 'modalGRN') {
+    const poOpen = DB.po.filter(p => p.status === 'OPEN');
+    document.getElementById('grnPO').innerHTML = poOpen.map(p => `<option value="${p.no}">${p.no} - ${p.supplierNama}</option>`).join('');
+    previewGRN();
+  }
+  if (id === 'modalSO') {
+    document.getElementById('soCustomer').innerHTML = DB.customers.map(c => `<option value="${c.kode}">${c.nama}</option>`).join('');
+    document.getElementById('soTanggal').value = today();
+    document.getElementById('soLines').innerHTML = '';
+    addSOLine();
+  }
+  if (id === 'modalInvoice') {
+    const soOpen = DB.so.filter(s => s.status === 'OPEN');
+    document.getElementById('invSO').innerHTML = soOpen.map(s => `<option value="${s.no}">${s.no} - ${s.customerNama}</option>`).join('');
+    previewInvoice();
+  }
+  document.getElementById(id).classList.add('active');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+/* =========================================================
+   EXPORT EXCEL
+   ========================================================= */
+function exportExcel(tableId, filename) {
+  const table = document.getElementById(tableId);
+  if (!table) return alert('Tabel tidak ditemukan');
+  if (typeof XLSX === 'undefined') return alert('Library XLSX belum ter-load.');
+  const clone = table.cloneNode(true);
+  clone.querySelectorAll('tr').forEach(tr => {
+    const cells = tr.querySelectorAll('th,td');
+    if (cells.length > 0 && (cells[cells.length-1].textContent.toLowerCase().includes('aksi') || cells[cells.length-1].innerHTML.includes('button'))) {
+      cells[cells.length-1].remove();
+    }
+  });
+  const wb = XLSX.utils.table_to_book(clone, { sheet: 'Sheet1' });
+  XLSX.writeFile(wb, `${filename}_${today()}.xlsx`);
+}
+
+function exportBukuBesar() {
+  const rows = [['Kode Akun','Nama Akun','Tanggal','Keterangan','Debit','Kredit','Saldo']];
+  const grouped = {};
+  DB.jurnal.forEach(j => {
+    if (!grouped[j.akun]) grouped[j.akun] = { nama: j.akunNama, items: [] };
+    grouped[j.akun].items.push(j);
+  });
+  Object.keys(grouped).sort().forEach(kode => {
+    const g = grouped[kode];
+    let saldo = 0;
+    g.items.forEach(i => {
+      saldo += i.debit - i.kredit;
+      rows.push([kode, g.nama, i.tanggal, i.keterangan, i.debit, i.kredit, saldo]);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'BukuBesar');
+  XLSX.writeFile(wb, `buku-besar_${today()}.xlsx`);
+}
+
+function exportLapPenjualan() {
+  const dari = document.getElementById('lapJualDari').value || '0000-01-01';
+  const sampai = document.getElementById('lapJualSampai').value || '9999-12-31';
+  const rows = [['LAPORAN PENJUALAN'], [`Periode: ${dari} s/d ${sampai}`], [],
+    ['Tanggal','No Invoice','Customer','Produk','Qty','Harga','Total']];
+  getInvoiceLines(dari, sampai).forEach(l => {
+    rows.push([l.tgl, l.invNo, l.customer, l.produkNama, l.qty, l.harga, l.subtotal]);
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Penjualan');
+  XLSX.writeFile(wb, `laporan-penjualan_${dari}_${sampai}.xlsx`);
+}
+
+function exportLapPembelian() {
+  const dari = document.getElementById('lapBeliDari').value || '0000-01-01';
+  const sampai = document.getElementById('lapBeliSampai').value || '9999-12-31';
+  const rows = [['LAPORAN PEMBELIAN'], [`Periode: ${dari} s/d ${sampai}`], [],
+    ['Tanggal','No GRN','Supplier','Produk','Qty','Harga','Subtotal','PPN','Total']];
+  getGRNLines(dari, sampai).forEach(l => {
+    rows.push([l.tgl, l.grnNo, l.supplier, l.produkNama, l.qty, l.harga, l.subtotal, l.ppn, l.subtotal + l.ppn]);
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Pembelian');
+  XLSX.writeFile(wb, `laporan-pembelian_${dari}_${sampai}.xlsx`);
+}
+
+function exportNeraca() {
+  const rows = [['NERACA PT PKP'], [`Per: ${today()}`], []];
+  const data = getNeracaData();
+  rows.push(['ASET', '', 'KEWAJIBAN & EKUITAS', '']);
+  data.aset.forEach(a => rows.push([a.nama, a.nilai, '', '']));
+  data.kewajiban.forEach(k => rows.push(['', '', k.nama, k.nilai]));
+  data.ekuitas.forEach(e => rows.push(['', '', e.nama, e.nilai]));
+  rows.push(['Total Aset', data.totalAset, 'Total Kewajiban + Ekuitas', data.totalPasiva]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Neraca');
+  XLSX.writeFile(wb, `neraca_${today()}.xlsx`);
+}
+
+/* =========================================================
+   MASTER
+   ========================================================= */
+function addCustomer() {
+  const nama = document.getElementById('custNama').value.trim();
+  const alamat = document.getElementById('custAlamat').value.trim();
+  if (!nama) return alert('Nama wajib diisi');
+  if (!alamat) return alert('Alamat wajib diisi');
+  DB.counter.cust++;
+  DB.customers.push({
+    kode: 'C' + String(DB.counter.cust).padStart(3,'0'),
+    nama, alamat,
+    npwp: document.getElementById('custNPWP').value.trim() || '-',
+    status: 'Non-PKP'
+  });
+  document.getElementById('custNama').value = '';
+  document.getElementById('custAlamat').value = '';
+  document.getElementById('custNPWP').value = '';
+  closeModal('modalCustomer'); renderAll();
+}
+function addSupplier() {
+  const nama = document.getElementById('supNama').value.trim();
+  const alamat = document.getElementById('supAlamat').value.trim();
+  if (!nama) return alert('Nama wajib diisi');
+  if (!alamat) return alert('Alamat wajib diisi');
+  DB.counter.sup++;
+  DB.suppliers.push({
+    kode: 'S' + String(DB.counter.sup).padStart(3,'0'),
+    nama, alamat,
+    npwp: document.getElementById('supNPWP').value.trim() || '-',
+    status: 'PKP'
+  });
+  document.getElementById('supNama').value = '';
+  document.getElementById('supAlamat').value = '';
+  document.getElementById('supNPWP').value = '';
+  closeModal('modalSupplier'); renderAll();
+}
+function addProduk() {
+  const nama = document.getElementById('prodNama').value.trim();
+  if (!nama) return alert('Nama wajib');
+  DB.counter.prod++;
+  DB.products.push({ kode: 'P' + String(DB.counter.prod).padStart(3,'0'), nama, satuan: document.getElementById('prodSatuan').value || 'pcs', qty: 0, hppAvg: 0 });
+  document.getElementById('prodNama').value = '';
+  document.getElementById('prodSatuan').value = '';
+  closeModal('modalProduk'); renderAll();
+}
+
+/* =========================================================
+   PO
+   ========================================================= */
+function addPOLine() {
+  const tbody = document.getElementById('poLines');
+  const tr = document.createElement('tr');
+  tr.className = 'line-row border-b';
+  tr.innerHTML = `
+    <td class="p-1"><select class="border rounded p-1 w-full text-xs produk-select" onchange="calcPOTotal()">${DB.products.map(p => `<option value="${p.kode}">${p.nama}</option>`).join('')}</select></td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right qty" value="1" min="1" oninput="calcPOTotal()"></td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right harga" value="0" min="0" oninput="calcPOTotal()"></td>
+    <td class="p-1 text-right text-xs subtotal">Rp 0</td>
+    <td class="p-1 text-center"><button onclick="this.closest('tr').remove(); calcPOTotal()" class="text-red-500 text-xs">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  calcPOTotal();
+}
+function calcPOTotal() {
+  let total = 0;
+  document.querySelectorAll('#poLines tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('.qty')?.value) || 0;
+    const harga = parseFloat(tr.querySelector('.harga')?.value) || 0;
+    const sub = qty * harga;
+    tr.querySelector('.subtotal').textContent = fmt(sub);
+    total += sub;
+  });
+  document.getElementById('poTotal').textContent = fmt(total);
+  return total;
+}
+function addPO() {
+  const supKode = document.getElementById('poSupplier').value;
+  const tgl = document.getElementById('poTanggal').value || today();
+  const items = [];
+  document.querySelectorAll('#poLines tr').forEach(tr => {
+    const prodKode = tr.querySelector('.produk-select').value;
+    const qty = parseFloat(tr.querySelector('.qty').value) || 0;
+    const harga = parseFloat(tr.querySelector('.harga').value) || 0;
+    if (prodKode && qty > 0 && harga > 0) {
+      const prod = DB.products.find(p => p.kode === prodKode);
+      items.push({ produkKode: prodKode, produkNama: prod.nama, qty, harga, subtotal: qty * harga });
+    }
+  });
+  if (!supKode || items.length === 0) return alert('Pilih supplier dan minimal 1 item');
+  const sup = DB.suppliers.find(s => s.kode === supKode);
+  DB.counter.po++;
+  DB.po.push({
+    no: 'PO' + String(DB.counter.po).padStart(4,'0'),
+    tanggal: tgl, supplierKode: supKode, supplierNama: sup.nama,
+    items, total: items.reduce((s,i) => s + i.subtotal, 0),
+    totalItem: items.length, status: 'OPEN'
+  });
+  closeModal('modalPO'); renderAll();
+}
+
+/* =========================================================
+   GRN
+   ========================================================= */
+function previewGRN() {
+  const poNo = document.getElementById('grnPO').value;
+  const po = DB.po.find(p => p.no === poNo);
+  if (!po) { document.getElementById('grnPreview').innerHTML = '<em>Tidak ada PO terbuka</em>'; return; }
+  const dpp = po.total;
+  const ppn = dpp * 0.11;
+  document.getElementById('grnPreview').innerHTML = `
+    <div class="font-semibold mb-1">${po.supplierNama} — ${po.items.length} item</div>
+    <table class="w-full">
+      <thead><tr><th class="text-left">Produk</th><th class="text-right">Qty</th><th class="text-right">Subtotal</th></tr></thead>
+      <tbody>${po.items.map(i => `<tr><td>${i.produkNama}</td><td class="text-right">${i.qty}</td><td class="text-right">${fmt(i.subtotal)}</td></tr>`).join('')}</tbody>
+      <tfoot>
+        <tr class="border-t"><td colspan="2" class="text-right font-semibold">DPP</td><td class="text-right">${fmt(dpp)}</td></tr>
+        <tr><td colspan="2" class="text-right font-semibold">PPN 11%</td><td class="text-right">${fmt(ppn)}</td></tr>
+        <tr class="font-bold bg-yellow-50"><td colspan="2" class="text-right">Total Bayar</td><td class="text-right">${fmt(dpp + ppn)}</td></tr>
+      </tfoot>
+    </table>`;
+}
+document.addEventListener('change', e => { if (e.target.id === 'grnPO') previewGRN(); });
+
+function addGRN() {
+  const poNo = document.getElementById('grnPO').value;
+  const po = DB.po.find(p => p.no === poNo);
+  if (!po) return alert('Pilih PO');
+  DB.counter.grn++;
+  const dpp = po.total, ppn = dpp * 0.11, total = dpp + ppn;
+  const tgl = today();
+  po.items.forEach(item => {
+    const prod = DB.products.find(p => p.kode === item.produkKode);
+    const nilaiLama = prod.qty * prod.hppAvg;
+    const nilaiBaru = nilaiLama + item.subtotal;
+    prod.qty += item.qty;
+    prod.hppAvg = prod.qty > 0 ? nilaiBaru / prod.qty : 0;
+  });
+  postJurnal(tgl, `GRN ${po.no}`, [
+    { akun: '103', nama: 'Persediaan Barang Dagang', debit: dpp, kredit: 0 },
+    { akun: '104', nama: 'PPN Masukan', debit: ppn, kredit: 0 },
+    { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: total },
+  ]);
+  DB.grn.push({
+    no: 'GRN' + String(DB.counter.grn).padStart(4,'0'),
+    tanggal: tgl, poNo: po.no, supplierNama: po.supplierNama,
+    items: po.items.map(i => ({ ...i })), dpp, ppn, total
+  });
+  po.status = 'CLOSED';
+  closeModal('modalGRN'); renderAll();
+}
+
+/* =========================================================
+   SO
+   ========================================================= */
+function addSOLine() {
+  const tbody = document.getElementById('soLines');
+  const tr = document.createElement('tr');
+  tr.className = 'line-row border-b';
+  tr.innerHTML = `
+    <td class="p-1"><select class="border rounded p-1 w-full text-xs produk-select" onchange="calcSOTotal()">${DB.products.map(p => `<option value="${p.kode}">${p.nama} (stok: ${p.qty})</option>`).join('')}</select></td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right qty" value="1" min="1" oninput="calcSOTotal()"></td>
+    <td class="p-1"><input type="number" class="border rounded p-1 w-full text-xs text-right harga" value="0" min="0" oninput="calcSOTotal()"></td>
+    <td class="p-1 text-right text-xs subtotal">Rp 0</td>
+    <td class="p-1 text-center"><button onclick="this.closest('tr').remove(); calcSOTotal()" class="text-red-500 text-xs">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  calcSOTotal();
+}
+function calcSOTotal() {
+  let total = 0;
+  document.querySelectorAll('#soLines tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('.qty')?.value) || 0;
+    const harga = parseFloat(tr.querySelector('.harga')?.value) || 0;
+    const sub = qty * harga;
+    tr.querySelector('.subtotal').textContent = fmt(sub);
+    total += sub;
+  });
+  document.getElementById('soTotal').textContent = fmt(total);
+  return total;
+}
+function addSO() {
+  const custKode = document.getElementById('soCustomer').value;
+  const tgl = document.getElementById('soTanggal').value || today();
+  const items = [];
+  document.querySelectorAll('#soLines tr').forEach(tr => {
+    const prodKode = tr.querySelector('.produk-select').value;
+    const qty = parseFloat(tr.querySelector('.qty').value) || 0;
+    const harga = parseFloat(tr.querySelector('.harga').value) || 0;
+    if (prodKode && qty > 0 && harga > 0) {
+      const prod = DB.products.find(p => p.kode === prodKode);
+      items.push({ produkKode: prodKode, produkNama: prod.nama, qty, harga, subtotal: qty * harga });
+    }
+  });
+  if (!custKode || items.length === 0) return alert('Pilih customer dan minimal 1 item');
+  const cust = DB.customers.find(c => c.kode === custKode);
+  DB.counter.so++;
+  DB.so.push({
+    no: 'SO' + String(DB.counter.so).padStart(4,'0'),
+    tanggal: tgl, customerKode: custKode, customerNama: cust.nama,
+    items, total: items.reduce((s,i) => s + i.subtotal, 0),
+    totalItem: items.length, status: 'OPEN'
+  });
+  closeModal('modalSO'); renderAll();
+}
+
+/* =========================================================
+   INVOICE
+   ========================================================= */
+function previewInvoice() {
+  const soNo = document.getElementById('invSO').value;
+  const so = DB.so.find(s => s.no === soNo);
+  if (!so) { document.getElementById('invPreview').innerHTML = '<em>Tidak ada SO terbuka</em>'; return; }
+  let totalHpp = 0;
+  const rows = so.items.map(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    const hpp = prod.hppAvg * i.qty;
+    totalHpp += hpp;
+    return `<tr><td>${i.produkNama}</td><td class="text-right">${i.qty}</td><td class="text-right">${fmt(i.harga)}</td><td class="text-right">${fmt(i.subtotal)}</td></tr>`;
+  }).join('');
+  document.getElementById('invPreview').innerHTML = `
+    <div class="font-semibold mb-1">${so.customerNama}</div>
+    <table class="w-full">
+      <thead><tr><th class="text-left">Produk</th><th class="text-right">Qty</th><th class="text-right">Harga</th><th class="text-right">Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="border-t"><td colspan="3" class="text-right font-semibold">Total Penjualan</td><td class="text-right">${fmt(so.total)}</td></tr>
+        <tr><td colspan="3" class="text-right font-semibold">Estimasi HPP</td><td class="text-right">${fmt(totalHpp)}</td></tr>
+        <tr class="font-bold bg-green-50"><td colspan="3" class="text-right">Estimasi Laba</td><td class="text-right">${fmt(so.total - totalHpp)}</td></tr>
+      </tfoot>
+    </table>`;
+}
+document.addEventListener('change', e => { if (e.target.id === 'invSO') previewInvoice(); });
+
+function addInvoice() {
+  const soNo = document.getElementById('invSO').value;
+  const so = DB.so.find(s => s.no === soNo);
+  if (!so) return alert('Pilih SO');
+  for (const item of so.items) {
+    const prod = DB.products.find(p => p.kode === item.produkKode);
+    if (prod.qty < item.qty) return alert(`Stok ${prod.nama} tidak cukup! Tersedia: ${prod.qty}`);
+  }
+  DB.counter.inv++;
+  const tgl = today();
+  const penjualan = so.total;
+  let hpp = 0;
+  const itemsWithHpp = so.items.map(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    const hppItem = prod.hppAvg * i.qty;
+    hpp += hppItem;
+    return { ...i, hpp: hppItem, hppAvg: prod.hppAvg };
+  });
+  itemsWithHpp.forEach(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    prod.qty -= i.qty;
+  });
+  postJurnal(tgl, `Invoice ${so.no} - ${so.customerNama}`, [
+    { akun: '101', nama: 'Kas / Bank', debit: penjualan, kredit: 0 },
+    { akun: '401', nama: 'Penjualan', debit: 0, kredit: penjualan },
+  ]);
+  postJurnal(tgl, `HPP ${so.no}`, [
+    { akun: '501', nama: 'Harga Pokok Penjualan (HPP)', debit: hpp, kredit: 0 },
+    { akun: '103', nama: 'Persediaan Barang Dagang', debit: 0, kredit: hpp },
+  ]);
+  DB.invoice.push({
+    no: 'INV' + String(DB.counter.inv).padStart(4,'0'),
+    tanggal: tgl, soNo: so.no, customerNama: so.customerNama,
+    items: itemsWithHpp, penjualan, hpp, laba: penjualan - hpp,
+    fakturPajak: null, // { nomor, pembulatan, penjualanSetelah }
+  });
+  so.status = 'CLOSED';
+  closeModal('modalInvoice'); renderAll();
+}
+
+/* =========================================================
+   FAKTUR PAJAK + PEMBULATAN
+   ========================================================= */
+let currentFakturInvNo = null;
+
+function openFakturModal(invNo) {
+  const inv = DB.invoice.find(i => i.no === invNo);
+  if (!inv) return;
+  currentFakturInvNo = invNo;
+
+  document.getElementById('fakturInfo').innerHTML = `
+    <div><strong>${inv.no}</strong> — ${inv.customerNama}</div>
+    <div>Nilai Invoice: <strong>${fmt(inv.penjualan)}</strong></div>
+    ${inv.fakturPajak ? '<div class="text-green-600 mt-1">✓ Faktur pajak sudah terpasang</div>' : ''}
+  `;
+
+  if (inv.fakturPajak) {
+    document.getElementById('fakturNomor').value = inv.fakturPajak.nomor;
+    document.getElementById('fakturPembulatan').value = inv.fakturPajak.pembulatan;
+  } else {
+    // Auto-generate nomor faktur dummy
+    const n = String(DB.invoice.indexOf(inv) + 1).padStart(8, '0');
+    document.getElementById('fakturNomor').value = `010.000-26.${n}`;
+    document.getElementById('fakturPembulatan').value = 0;
+  }
+  previewFakturPembulatan();
+  document.getElementById('modalFakturPajak').classList.add('active');
+}
+
+function previewFakturPembulatan() {
+  const inv = DB.invoice.find(i => i.no === currentFakturInvNo);
+  if (!inv) return;
+  const sebelum = inv.fakturPajak ? inv.fakturPajak.penjualanAsli : inv.penjualan;
+  const pembulatan = parseFloat(document.getElementById('fakturPembulatan').value) || 0;
+  const sesudah = sebelum + pembulatan;
+
+  document.getElementById('fakturSebelum').textContent = fmt(sebelum);
+  document.getElementById('fakturDelta').textContent = (pembulatan >= 0 ? '+' : '') + fmt(pembulatan);
+  document.getElementById('fakturSesudah').textContent = fmt(sesudah);
+
+  const info = document.getElementById('fakturPembulatanInfo');
+  if (pembulatan === 0) {
+    info.textContent = 'Tidak ada pembulatan — nilai invoice tetap.';
+    info.className = 'text-xs mb-3 text-slate-500';
+  } else {
+    info.textContent = `Nilai invoice akan disesuaikan otomatis menjadi ${fmt(sesudah)}`;
+    info.className = 'text-xs mb-3 text-blue-600 font-semibold';
+  }
+}
+
+function saveFakturPajak() {
+  const inv = DB.invoice.find(i => i.no === currentFakturInvNo);
+  if (!inv) return;
+
+  const nomor = document.getElementById('fakturNomor').value.trim();
+  if (!nomor) return alert('Nomor faktur pajak wajib diisi');
+
+  const pembulatan = parseFloat(document.getElementById('fakturPembulatan').value) || 0;
+  const penjualanAsli = inv.fakturPajak ? inv.fakturPajak.penjualanAsli : inv.penjualan;
+  const penjualanBaru = penjualanAsli + pembulatan;
+
+  // === SELF-CHECK ===
+  if (penjualanBaru <= 0) return alert('Nilai invoice setelah pembulatan tidak boleh ≤ 0');
+
+  // Simpan
+  inv.fakturPajak = {
+    nomor,
+    pembulatan,
+    penjualanAsli,
+    penjualanSetelah: penjualanBaru,
+    tglPasang: today(),
+  };
+
+  // === SELF-UPDATING: Update nilai invoice ===
+  const delta = penjualanBaru - inv.penjualan;
+
+  if (delta !== 0) {
+    // Koreksi jurnal Penjualan
+    // Hapus efek saldo lama, tambah yang baru
+    DB.saldo['401'] = (DB.saldo['401'] || 0) - delta; // 401 normal kredit
+    DB.saldo['101'] = (DB.saldo['101'] || 0) + delta;
+
+    // Post jurnal penyesuaian pembulatan
+    postJurnal(today(), `Penyesuaian pembulatan ${inv.no}`, [
+      { akun: '101', nama: 'Kas / Bank', debit: delta, kredit: 0 },
+      { akun: '401', nama: 'Penjualan', debit: 0, kredit: delta },
+    ]);
+
+    // Update nilai invoice
+    inv.penjualan = penjualanBaru;
+    inv.laba = inv.penjualan - inv.hpp;
+  }
+
+  closeModal('modalFakturPajak');
+  renderAll();
+  alert(`✅ Faktur pajak berhasil dipasang.\n\nNo: ${nomor}\nNilai Invoice: ${fmt(penjualanBaru)}\n${pembulatan !== 0 ? 'Pembulatan: ' + fmt(pembulatan) : ''}`);
+}
+
+/* =========================================================
+   PRINT INVOICE A5
+   ========================================================= */
+function printInvoice(invNo) {
+  const inv = DB.invoice.find(i => i.no === invNo);
+  if (!inv) return;
+  const cust = DB.customers.find(c => c.nama === inv.customerNama) || { alamat: '-', npwp: '-' };
+  const terbilang = (n) => {
+    const satuan = ['','Satu','Dua','Tiga','Empat','Lima','Enam','Tujuh','Delapan','Sembilan','Sepuluh','Sebelas'];
+    const bil = (x) => {
+      x = Math.floor(x);
+      if (x < 12) return satuan[x];
+      if (x < 20) return bil(x-10) + ' Belas';
+      if (x < 100) return bil(Math.floor(x/10)) + ' Puluh ' + bil(x%10);
+      if (x < 200) return 'Seratus ' + bil(x-100);
+      if (x < 1000) return bil(Math.floor(x/100)) + ' Ratus ' + bil(x%100);
+      if (x < 2000) return 'Seribu ' + bil(x-1000);
+      if (x < 1000000) return bil(Math.floor(x/1000)) + ' Ribu ' + bil(x%1000);
+      if (x < 1000000000) return bil(Math.floor(x/1000000)) + ' Juta ' + bil(x%1000000);
+      return bil(Math.floor(x/1000000000)) + ' Miliar ' + bil(x%1000000000);
+    };
+    return (bil(n) || 'Nol') + ' Rupiah';
+  };
+  const rows = inv.items.map((i, idx) => `
+    <tr>
+      <td style="text-align:center">${idx+1}</td>
+      <td>${i.produkNama}</td>
+      <td style="text-align:right">${fmtNum(i.qty)}</td>
+      <td style="text-align:right">${fmtNum(i.harga)}</td>
+      <td style="text-align:right">${fmtNum(i.subtotal)}</td>
+    </tr>
+  `).join('');
+
+  const fpRow = inv.fakturPajak ? `
+    <div style="font-size:9px;margin-bottom:12px">
+      <strong>Faktur Pajak:</strong> ${inv.fakturPajak.nomor}<br>
+      ${inv.fakturPajak.pembulatan !== 0 ? `<strong>Pembulatan:</strong> ${inv.fakturPajak.pembulatan >= 0 ? '+' : ''}${fmtNum(inv.fakturPajak.pembulatan)}<br>` : ''}
+    </div>
+  ` : '';
+
+  document.getElementById('invoicePrintArea').innerHTML = `
+    <div style="display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
+      <div>
+        <div style="font-weight:bold;font-size:14px">PT PKP</div>
+        <div style="font-size:9px">Jl. Contoh No. 123, Jakarta</div>
+        <div style="font-size:9px">NPWP: 01.234.567.8-901.000</div>
+      </div>
+      <div style="text-align:right">
+        <div class="header-title">INVOICE</div>
+        <div style="font-size:10px">No: ${inv.no}</div>
+        <div style="font-size:10px">Tanggal: ${inv.tanggal}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:8px;display:flex;justify-content:space-between">
+      <div>
+        <div style="font-size:9px;color:#666">Kepada:</div>
+        <div style="font-weight:bold">${inv.customerNama}</div>
+        <div style="font-size:9px">${cust.alamat || '-'}</div>
+        <div style="font-size:9px">NPWP/KTP: ${cust.npwp || '-'}</div>
+      </div>
+      <div style="text-align:right;font-size:9px"><div>Customer Non-PKP</div></div>
+    </div>
+    <table class="line-item" style="margin-bottom:8px">
+      <thead><tr><th style="width:8%;text-align:center">No</th><th>Deskripsi</th><th style="width:12%;text-align:right">Qty</th><th style="width:20%;text-align:right">Harga</th><th style="width:22%;text-align:right">Jumlah</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <table style="margin-bottom:8px">
+      <tr><td style="text-align:right;padding:2px 6px;font-weight:bold">TOTAL</td><td style="text-align:right;padding:2px 6px;font-weight:bold;border-top:1px solid #000;width:35%">${fmt(inv.penjualan)}</td></tr>
+    </table>
+    <div style="font-size:9px;margin-bottom:12px;font-style:italic">Terbilang: <strong>${terbilang(inv.penjualan)}</strong></div>
+    ${fpRow}
+    <div style="font-size:9px;margin-bottom:12px"><strong>Pembayaran:</strong> Cash / Transfer<br><strong>Bank:</strong> Bank Contoh - A/C 1234567890</div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:24px">
+      <div style="text-align:center"><div>Penerima,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
+      <div style="text-align:center"><div>Hormat Kami,</div><div style="height:40px"></div><div style="border-top:1px solid #000;padding-top:2px">(________________)</div></div>
+    </div>
+    <div style="text-align:center;font-size:8px;color:#666;margin-top:14px;border-top:1px dotted #999;padding-top:4px">Dokumen ini dicetak dari sistem ERP PT PKP — ${new Date().toLocaleString('id-ID')}</div>
+  `;
+  document.getElementById('modalInvoicePrint').classList.add('active');
+}
+
+/* =========================================================
+   JURNAL
+   ========================================================= */
+function postJurnal(tgl, ket, lines) {
+  DB.counter.jurnal++;
+  const no = 'JV' + String(DB.counter.jurnal).padStart(5,'0');
+  lines.forEach(l => {
+    DB.jurnal.push({ no, tanggal: tgl, keterangan: ket, akun: l.akun, akunNama: l.nama, debit: l.debit, kredit: l.kredit });
+    DB.saldo[l.akun] = (DB.saldo[l.akun] || 0) + (l.debit - l.kredit);
+  });
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function renderAll() {
+  renderPeriodBadge();
+  renderDashboard();
+  renderCustomer();
+  renderSupplier();
+  renderProduk();
+  renderCOA();
+  renderPO();
+  renderGRN();
+  renderSO();
+  renderInvoice();
+  renderJurnal();
+  renderBukuBesar();
+  renderTrial();
+  renderLabaRugi();
+  renderNeraca();
+  renderArusKas();
+  renderClosing();
+  renderClosedPeriods();
+  applyClosedLock();
+}
+
+function renderPeriodBadge() {
+  document.getElementById('periodBadge').textContent = 'Periode: ' + periodLabel(DB.currentPeriod) + (DB.isClosed ? ' 🔒' : '');
+}
+
+function applyClosedLock() {
+  document.querySelectorAll('.btn-add').forEach(b => {
+    if (DB.isClosed) {
+      b.classList.add('disabled-overlay');
+      b.title = 'Periode sudah ditutup';
+    } else {
+      b.classList.remove('disabled-overlay');
+      b.title = '';
+    }
+  });
+}
+
+function renderDashboard() {
+  const totalPenjualan = DB.invoice.reduce((s,i) => s + i.penjualan, 0);
+  const totalPembelian = DB.grn.reduce((s,g) => s + g.dpp, 0);
+  const totalHPP = DB.invoice.reduce((s,i) => s + i.hpp, 0);
+  const laba = totalPenjualan - totalHPP;
+  document.getElementById('kpiPenjualan').textContent = fmt(totalPenjualan);
+  document.getElementById('kpiPembelian').textContent = fmt(totalPembelian);
+  document.getElementById('kpiLaba').textContent = fmt(laba);
+  document.getElementById('kpiKas').textContent = fmt(DB.saldo['101'] || 0);
+
+  try {
+    const ctxT = document.getElementById('chartTren');
+    if (window._chartTrenInstance) { try { window._chartTrenInstance.destroy(); } catch(e){} }
+    window._chartTrenInstance = new Chart(ctxT, {
+      type: 'bar',
+      data: {
+        labels: ['Minggu 1','Minggu 2','Minggu 3','Minggu 4'],
+        datasets: [
+          { label: 'Penjualan', data: [totalPenjualan*0.2, totalPenjualan*0.3, totalPenjualan*0.2, totalPenjualan*0.3], backgroundColor: '#3b82f6' },
+          { label: 'Pembelian', data: [totalPembelian*0.3, totalPembelian*0.2, totalPembelian*0.3, totalPembelian*0.2], backgroundColor: '#f97316' },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  } catch(e) {}
+  try {
+    const ctxS = document.getElementById('chartStok');
+    if (window._chartStokInstance) { try { window._chartStokInstance.destroy(); } catch(e){} }
+    window._chartStokInstance = new Chart(ctxS, {
+      type: 'bar',
+      data: {
+        labels: DB.products.map(p => p.nama),
+        datasets: [{ label: 'Qty Stok', data: DB.products.map(p => p.qty),
+          backgroundColor: DB.products.map(p => p.qty === 0 ? '#22c55e' : '#ef4444') }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  } catch(e) {}
+
+  const all = [
+    ...DB.grn.map(g => ({ tgl: g.tanggal, no: g.no, jenis: 'GRN', ket: g.supplierNama, jml: g.total })),
+    ...DB.invoice.map(i => ({ tgl: i.tanggal, no: i.no, jenis: 'Invoice', ket: i.customerNama, jml: i.penjualan })),
+  ].slice(-10).reverse();
+  document.getElementById('tblTransaksi').innerHTML = all.map(t => `
+    <tr class="border-b">
+      <td class="p-2">${t.tgl}</td>
+      <td class="p-2 font-mono text-xs">${t.no}</td>
+      <td class="p-2"><span class="badge ${t.jenis === 'GRN' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${t.jenis}</span></td>
+      <td class="p-2">${t.ket}</td>
+      <td class="p-2 text-right">${fmt(t.jml)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-center p-4 text-slate-400">Belum ada transaksi</td></tr>';
+}
+
+function renderCustomer() {
+  document.querySelector('#tblCustomer tbody').innerHTML = DB.customers.map(c => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${c.kode}</td>
+      <td class="p-2 font-semibold">${c.nama}</td>
+      <td class="p-2 text-xs">${c.alamat || '-'}</td>
+      <td class="p-2 text-xs">${c.npwp}</td>
+      <td class="p-2"><span class="badge bg-slate-100 text-slate-600">${c.status}</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-center p-4 text-slate-400">Belum ada data</td></tr>';
+}
+function renderSupplier() {
+  document.querySelector('#tblSupplier tbody').innerHTML = DB.suppliers.map(s => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${s.kode}</td>
+      <td class="p-2 font-semibold">${s.nama}</td>
+      <td class="p-2 text-xs">${s.alamat || '-'}</td>
+      <td class="p-2 text-xs">${s.npwp}</td>
+      <td class="p-2"><span class="badge bg-green-100 text-green-700">${s.status}</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-center p-4 text-slate-400">Belum ada data</td></tr>';
+}
+function renderProduk() {
+  document.querySelector('#tblProduk tbody').innerHTML = DB.products.map(p => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${p.kode}</td>
+      <td class="p-2">${p.nama}</td>
+      <td class="p-2 text-right">${fmtNum(p.qty)} ${p.satuan}</td>
+      <td class="p-2 text-right">${fmt(p.hppAvg)}</td>
+      <td class="p-2 text-right">${fmt(p.qty * p.hppAvg)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-center p-4 text-slate-400">Belum ada data</td></tr>';
+}
+function renderCOA() {
+  document.querySelector('#tblCOA tbody').innerHTML = DB.coa.map(c => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${c.kode}</td>
+      <td class="p-2">${c.nama}</td>
+      <td class="p-2 text-xs">${c.tipe}</td>
+      <td class="p-2">${c.normal === 'D' ? 'Debit' : 'Kredit'}</td>
+    </tr>
+  `).join('');
+}
+function renderPO() {
+  document.querySelector('#tblPO tbody').innerHTML = DB.po.map(p => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${p.no}</td>
+      <td class="p-2">${p.tanggal}</td>
+      <td class="p-2">${p.supplierNama}</td>
+      <td class="p-2 text-right">${p.totalItem}</td>
+      <td class="p-2 text-right">${fmt(p.total)}</td>
+      <td class="p-2"><span class="badge ${p.status === 'OPEN' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">${p.status}</span></td>
+      <td class="p-2 text-center"><button onclick="showPODetail('${p.no}')" class="text-xs bg-slate-200 px-2 py-1 rounded">👁 Detail</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="text-center p-4 text-slate-400">Belum ada PO</td></tr>';
+}
+function showPODetail(no) {
+  const po = DB.po.find(p => p.no === no);
+  alert(`${po.no}\nSupplier: ${po.supplierNama}\n\n` + po.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nTOTAL: ${fmt(po.total)}`);
+}
+function renderGRN() {
+  document.querySelector('#tblGRN tbody').innerHTML = DB.grn.map(g => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${g.no}</td>
+      <td class="p-2">${g.tanggal}</td>
+      <td class="p-2 font-mono text-xs">${g.poNo}</td>
+      <td class="p-2 text-right">${fmt(g.dpp)}</td>
+      <td class="p-2 text-right">${fmt(g.ppn)}</td>
+      <td class="p-2 text-right font-semibold">${fmt(g.total)}</td>
+      <td class="p-2 text-center"><button onclick="showGRNDetail('${g.no}')" class="text-xs bg-slate-200 px-2 py-1 rounded">👁</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="text-center p-4 text-slate-400">Belum ada GRN</td></tr>';
+}
+function showGRNDetail(no) {
+  const g = DB.grn.find(x => x.no === no);
+  alert(`${g.no}\nSupplier: ${g.supplierNama}\n\n` + g.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nDPP: ${fmt(g.dpp)}\nPPN: ${fmt(g.ppn)}\nTOTAL: ${fmt(g.total)}`);
+}
+function renderSO() {
+  document.querySelector('#tblSO tbody').innerHTML = DB.so.map(s => `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${s.no}</td>
+      <td class="p-2">${s.tanggal}</td>
+      <td class="p-2">${s.customerNama}</td>
+      <td class="p-2 text-right">${s.totalItem}</td>
+      <td class="p-2 text-right">${fmt(s.total)}</td>
+      <td class="p-2"><span class="badge ${s.status === 'OPEN' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">${s.status}</span></td>
+      <td class="p-2 text-center"><button onclick="showSODetail('${s.no}')" class="text-xs bg-slate-200 px-2 py-1 rounded">👁</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="text-center p-4 text-slate-400">Belum ada SO</td></tr>';
+}
+function showSODetail(no) {
+  const s = DB.so.find(x => x.no === no);
+  alert(`${s.no}\nCustomer: ${s.customerNama}\n\n` + s.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nTOTAL: ${fmt(s.total)}`);
+}
+function renderInvoice() {
+  document.querySelector('#tblInvoice tbody').innerHTML = DB.invoice.map(i => {
+    const fp = i.fakturPajak;
+    const fpCell = fp
+      ? `<div class="text-xs"><div class="font-mono text-green-700">${fp.nomor}</div>${fp.pembulatan !== 0 ? `<div class="text-slate-500">Pembulatan: ${fp.pembulatan >= 0 ? '+' : ''}${fmtNum(fp.pembulatan)}</div>` : ''}</div>`
+      : `<span class="badge bg-red-100 text-red-700">Belum ada</span>`;
+
+    return `
+    <tr class="border-b">
+      <td class="p-2 font-mono text-xs">${i.no}</td>
+      <td class="p-2">${i.tanggal}</td>
+      <td class="p-2">${i.customerNama}</td>
+      <td class="p-2 text-right">${fmt(i.penjualan)}</td>
+      <td class="p-2 text-right">${fmt(i.hpp)}</td>
+      <td class="p-2 text-right font-semibold ${i.laba >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(i.laba)}</td>
+      <td class="p-2">${fpCell}</td>
+      <td class="p-2 text-center">
+        <div class="flex gap-1 justify-center">
+          <button onclick="printInvoice('${i.no}')" class="text-xs bg-slate-600 text-white px-2 py-1 rounded">🖨</button>
+          <button onclick="openFakturModal('${i.no}')" class="text-xs ${fp ? 'bg-yellow-500' : 'bg-blue-600'} text-white px-2 py-1 rounded" title="${fp ? 'Ubah Faktur Pajak' : 'Pasang Faktur Pajak'}">🧾 ${fp ? 'Ubah' : 'Pasang'} FP</button>
+        </div>
+      </td>
+    </tr>
+  `;
+  }).join('') || '<tr><td colspan="8" class="text-center p-4 text-slate-400">Belum ada Invoice</td></tr>';
+}
+function renderJurnal() {
+  document.querySelector('#tblJurnal tbody').innerHTML = DB.jurnal.slice().reverse().map(j => `
+    <tr class="border-b text-xs">
+      <td class="p-2">${j.tanggal}</td>
+      <td class="p-2 font-mono">${j.no}</td>
+      <td class="p-2">${j.keterangan}</td>
+      <td class="p-2">${j.akun} - ${j.akunNama}</td>
+      <td class="p-2 text-right">${j.debit ? fmt(j.debit) : '-'}</td>
+      <td class="p-2 text-right">${j.kredit ? fmt(j.kredit) : '-'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="text-center p-4 text-slate-400">Belum ada jurnal</td></tr>';
+}
+function renderBukuBesar() {
+  const grouped = {};
+  DB.jurnal.forEach(j => {
+    if (!grouped[j.akun]) grouped[j.akun] = { nama: j.akunNama, items: [] };
+    grouped[j.akun].items.push(j);
+  });
+  document.getElementById('bukuBesarContainer').innerHTML = Object.keys(grouped).sort().map(kode => {
+    const g = grouped[kode];
+    let saldo = 0;
+    const rows = g.items.map(i => {
+      saldo += i.debit - i.kredit;
+      return `<tr class="border-b text-xs">
+        <td class="p-1">${i.tanggal}</td><td class="p-1">${i.keterangan}</td>
+        <td class="p-1 text-right">${i.debit ? fmt(i.debit) : '-'}</td>
+        <td class="p-1 text-right">${i.kredit ? fmt(i.kredit) : '-'}</td>
+        <td class="p-1 text-right font-semibold">${fmt(saldo)}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="mb-4 border rounded overflow-hidden">
+      <div class="bg-slate-100 p-2 font-semibold text-sm">${kode} - ${g.nama}</div>
+      <table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500 text-xs">
+        <tr><th class="text-left p-1">Tanggal</th><th class="text-left p-1">Keterangan</th><th class="text-right p-1">Debit</th><th class="text-right p-1">Kredit</th><th class="text-right p-1">Saldo</th></tr>
+      </thead><tbody>${rows}</tbody></table></div>`;
+  }).join('') || '<p class="text-center text-slate-400 py-4">Belum ada jurnal</p>';
+}
+function renderTrial() {
+  const rows = [];
+  let tD = 0, tK = 0;
+  DB.coa.forEach(c => {
+    const saldo = DB.saldo[c.kode] || 0;
+    if (Math.abs(saldo) < 0.5) return;
+    const debit = saldo > 0 ? saldo : 0;
+    const kredit = saldo < 0 ? -saldo : 0;
+    tD += debit; tK += kredit;
+    rows.push(`<tr class="border-b"><td class="p-2 font-mono text-xs">${c.kode}</td><td class="p-2">${c.nama}</td><td class="p-2 text-right">${debit ? fmt(debit) : '-'}</td><td class="p-2 text-right">${kredit ? fmt(kredit) : '-'}</td></tr>`);
+  });
+  document.querySelector('#tblTrial tbody').innerHTML = rows.join('') || '<tr><td colspan="4" class="text-center p-4 text-slate-400">Belum ada saldo</td></tr>';
+  document.getElementById('totalDebit').textContent = fmt(tD);
+  document.getElementById('totalKredit').textContent = fmt(tK);
+}
+
+function getLabaRugiData() {
+  const penjualan = -(DB.saldo['401'] || 0);
+  const hpp = DB.saldo['501'] || 0;
+  let beban = 0;
+  DB.coa.filter(c => c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => {
+    beban += (DB.saldo[c.kode] || 0);
+  });
+  return { penjualan, hpp, beban, labaKotor: penjualan - hpp, labaBersih: penjualan - hpp - beban };
+}
+
+function renderLabaRugi() {
+  const select = document.getElementById('lrPeriode');
+  if (select.options.length === 0) {
+    // Inisialisasi dropdown periode
+    let html = `<option value="current">${periodLabel(DB.currentPeriod)} (Aktif)</option>`;
+    DB.closedPeriods.forEach((p, idx) => {
+      html += `<option value="closed-${idx}">${periodLabel(p.periode)} (Closed)</option>`;
+    });
+    select.innerHTML = html;
+  }
+
+  const val = select.value || 'current';
+  let d;
+  if (val === 'current') {
+    d = getLabaRugiData();
+  } else {
+    const idx = parseInt(val.split('-')[1]);
+    const p = DB.closedPeriods[idx];
+    d = { penjualan: p.penjualan, hpp: p.hpp, beban: p.beban, labaKotor: p.penjualan - p.hpp, labaBersih: p.labaBersih };
+  }
+
+  document.querySelector('#tblLabaRugi tbody').innerHTML = `
+    <tr class="border-b"><td class="p-2 font-semibold">Pendapatan Penjualan</td><td class="p-2 text-right">${fmt(d.penjualan)}</td></tr>
+    <tr class="border-b"><td class="p-2 pl-6">Harga Pokok Penjualan (HPP)</td><td class="p-2 text-right text-red-600">(${fmt(d.hpp)})</td></tr>
+    <tr class="border-b bg-slate-50 font-semibold"><td class="p-2">Laba Kotor</td><td class="p-2 text-right">${fmt(d.labaKotor)}</td></tr>
+    <tr class="border-b"><td class="p-2 pl-6">Total Beban Operasional</td><td class="p-2 text-right text-red-600">(${fmt(d.beban)})</td></tr>
+    <tr class="bg-green-50 font-bold text-lg"><td class="p-2">LABA BERSIH</td><td class="p-2 text-right text-green-700">${fmt(d.labaBersih)}</td></tr>
+  `;
+}
+
+function getNeracaData() {
+  const kas = DB.saldo['101'] || 0;
+  const piutang = DB.saldo['102'] || 0;
+  const persediaan = DB.saldo['103'] || 0;
+  const ppnMasukan = DB.saldo['104'] || 0;
+  const totalAset = kas + piutang + persediaan + ppnMasukan;
+
+  const hutang = -(DB.saldo['201'] || 0);
+  const ppnKel = -(DB.saldo['202'] || 0);
+  const modal = -(DB.saldo['301'] || 0);
+  const labaDitahan = -(DB.saldo['303'] || 0);
+
+  // Setelah closing, akun 401/501/601 = 0 → labaBerjalan = 0
+  // Neraca tetap balance karena laba sudah dipindah ke Laba Ditahan (303)
+  const labaBerjalan = getLabaRugiData().labaBersih;
+
+  const totalKewajiban = hutang + ppnKel;
+  const totalEkuitas = modal + labaDitahan + labaBerjalan;
+  const totalPasiva = totalKewajiban + totalEkuitas;
+
+  return {
+    aset: [
+      { nama: 'Kas / Bank', nilai: kas },
+      { nama: 'Piutang Dagang', nilai: piutang },
+      { nama: 'Persediaan Barang Dagang', nilai: persediaan },
+      { nama: 'PPN Masukan', nilai: ppnMasukan },
+    ],
+    kewajiban: [
+      { nama: 'Hutang Dagang', nilai: hutang },
+      { nama: 'PPN Keluaran', nilai: ppnKel },
+    ],
+    ekuitas: [
+      { nama: 'Modal Disetor', nilai: modal },
+      { nama: 'Laba Ditahan', nilai: labaDitahan },
+      { nama: 'Laba Tahun Berjalan', nilai: labaBerjalan },
+    ],
+    totalAset, totalKewajiban, totalEkuitas, totalPasiva,
+  };
+}
+
+function renderNeraca() {
+  const d = getNeracaData();
+  document.getElementById('neracaTgl').textContent = 'Per: ' + today();
+
+  document.querySelector('#tblAset tbody').innerHTML =
+    d.aset.map(a => `<tr class="border-b"><td class="p-2">${a.nama}</td><td class="p-2 text-right">${fmt(a.nilai)}</td></tr>`).join('') +
+    `<tr class="bg-slate-50 font-bold"><td class="p-2">Total Aset</td><td class="p-2 text-right">${fmt(d.totalAset)}</td></tr>`;
+
+  document.querySelector('#tblKewajiban tbody').innerHTML =
+    d.kewajiban.map(k => `<tr class="border-b"><td class="p-2">${k.nama}</td><td class="p-2 text-right">${fmt(k.nilai)}</td></tr>`).join('') +
+    d.ekuitas.map(e => `<tr class="border-b"><td class="p-2">${e.nama}</td><td class="p-2 text-right">${fmt(e.nilai)}</td></tr>`).join('') +
+    `<tr class="bg-slate-50 font-bold"><td class="p-2">Total Kewajiban + Ekuitas</td><td class="p-2 text-right">${fmt(d.totalPasiva)}</td></tr>`;
+
+  document.getElementById('neracaTotalAset').textContent = fmt(d.totalAset);
+  document.getElementById('neracaTotalPasiva').textContent = fmt(d.totalPasiva);
+
+  const diff = Math.abs(d.totalAset - d.totalPasiva);
+  const status = document.getElementById('neracaStatus');
+  if (diff < 1) { status.textContent = '✓ Balance'; status.className = 'text-center mt-2 text-green-600 font-semibold'; }
+  else { status.textContent = `⚠ Selisih: ${fmt(diff)}`; status.className = 'text-center mt-2 text-yellow-600 font-semibold text-xs'; }
+}
+
+function renderArusKas() {
+  const kasMasuk = DB.invoice.reduce((s,i) => s + i.penjualan, 0);
+  let totalBeban = 0;
+  DB.coa.filter(c => c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => { totalBeban += (DB.saldo[c.kode] || 0); });
+  const kasKeluar = DB.grn.reduce((s,g) => s + g.total, 0) + totalBeban;
+  const netto = kasMasuk - kasKeluar;
+  document.querySelector('#tblArusKas tbody').innerHTML = `
+    <tr class="bg-slate-100 font-semibold"><td class="p-2" colspan="2">AKTIVITAS OPERASI</td></tr>
+    <tr class="border-b"><td class="p-2 pl-6">Penerimaan dari Penjualan</td><td class="p-2 text-right">${fmt(kasMasuk)}</td></tr>
+    <tr class="border-b"><td class="p-2 pl-6">Pembayaran Pembelian</td><td class="p-2 text-right text-red-600">(${fmt(kasKeluar)})</td></tr>
+    <tr class="border-b bg-slate-50 font-semibold"><td class="p-2">Arus Kas Neto</td><td class="p-2 text-right">${fmt(netto)}</td></tr>
+    <tr class="bg-blue-50 font-bold"><td class="p-2">Saldo Kas Akhir</td><td class="p-2 text-right">${fmt(DB.saldo['101'] || 0)}</td></tr>
+  `;
+}
+
+function renderClosing() {
+  const d = getLabaRugiData();
+  document.getElementById('closingPeriode').textContent = periodLabel(DB.currentPeriod);
+  document.getElementById('closingStatus').innerHTML = DB.isClosed
+    ? '<span class="text-red-600">🔒 CLOSED</span>'
+    : '<span class="text-green-600">✓ OPEN</span>';
+  document.getElementById('closingPenjualan').textContent = fmt(d.penjualan);
+  document.getElementById('closingHPP').textContent = fmt(d.hpp);
+  document.getElementById('closingBeban').textContent = fmt(d.beban);
+  document.getElementById('closingLaba').textContent = fmt(d.labaBersih);
+
+  const btn = document.getElementById('btnClosing');
+  if (DB.isClosed) {
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    btn.textContent = '🔒 Periode Sudah Ditutup';
+  } else {
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    btn.textContent = '🔒 Proses Tutup Buku';
+  }
+}
+
+function renderClosedPeriods() {
+  document.querySelector('#tblClosedPeriods tbody').innerHTML = DB.closedPeriods.map(p => `
+    <tr class="border-b">
+      <td class="p-2 font-semibold">${periodLabel(p.periode)}</td>
+      <td class="p-2 text-xs">${p.tglClosing}</td>
+      <td class="p-2 text-right">${fmt(p.penjualan)}</td>
+      <td class="p-2 text-right">${fmt(p.hpp)}</td>
+      <td class="p-2 text-right">${fmt(p.beban)}</td>
+      <td class="p-2 text-right font-semibold ${p.labaBersih >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(p.labaBersih)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="text-center p-4 text-slate-400">Belum ada periode tertutup</td></tr>';
+}
+
+/* =========================================================
+   CLOSING (PERBAIKAN TOTAL)
+   ========================================================= */
+function doClosing() {
+  if (DB.isClosed) return alert('Periode sudah ditutup');
+  const d = getLabaRugiData();
+
+  if (Math.abs(d.penjualan) < 0.5 && Math.abs(d.hpp) < 0.5 && Math.abs(d.beban) < 0.5) {
+    return alert('Tidak ada transaksi untuk ditutup');
+  }
+
+  const tglClosing = today();
+  const jurnalLines = [];
+
+  // 1. Tutup SEMUA akun pendapatan
+  DB.coa.filter(c => c.tipe === 'Pendapatan' || c.tipe === 'Pendapatan Lain').forEach(c => {
+    const saldo = DB.saldo[c.kode] || 0;
+    if (Math.abs(saldo) < 0.5) return;
+    // Akun pendapatan saldo normal K → saldo di DB negatif
+    // Untuk menutup: debit sebesar saldo kredit
+    if (saldo < 0) {
+      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
+    } else {
+      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
+    }
+  });
+
+  // 2. Tutup SEMUA akun HPP & Beban
+  DB.coa.filter(c => c.tipe === 'HPP' || c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => {
+    const saldo = DB.saldo[c.kode] || 0;
+    if (Math.abs(saldo) < 0.5) return;
+    if (saldo > 0) {
+      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
+    } else {
+      jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
+    }
+  });
+
+  // 3. Hitung selisih → ke Laba Ditahan
+  // Total debit - total kredit dari lines di atas
+  let totalDebitClosing = jurnalLines.reduce((s, l) => s + l.debit, 0);
+  let totalKreditClosing = jurnalLines.reduce((s, l) => s + l.kredit, 0);
+  const selisih = totalDebitClosing - totalKreditClosing;
+
+  // Jika laba: debit < kredit → kurangi Laba Ditahan (kredit Laba Ditahan)
+  // Jika rugi: debit > kredit → tambah Laba Ditahan (debit Laba Ditahan)
+  if (selisih > 0) {
+    // Rugi → Laba Ditahan berkurang (debit Laba Ditahan)
+    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: selisih, kredit: 0 });
+  } else if (selisih < 0) {
+    // Laba → Laba Ditahan bertambah (kredit Laba Ditahan)
+    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: 0, kredit: -selisih });
+  }
+
+  // Post jurnal closing
+  if (jurnalLines.length > 0) {
+    postJurnal(tglClosing, `Tutup Buku ${periodLabel(DB.currentPeriod)}`, jurnalLines);
+  }
+
+  // Snapshot
+  DB.closedPeriods.push({
+    periode: DB.currentPeriod,
+    tglClosing,
+    penjualan: d.penjualan,
+    hpp: d.hpp,
+    beban: d.beban,
+    labaBersih: d.labaBersih,
+  });
+
+  // Reset dropdown laba rugi agar refresh
+  document.getElementById('lrPeriode').innerHTML = '';
+
+  DB.isClosed = true;
+  renderAll();
+
+  document.getElementById('closingResult').innerHTML = `
+    <div class="bg-green-50 border-l-4 border-green-500 p-3 text-sm">
+      ✓ <strong>Tutup buku ${periodLabel(DB.currentPeriod)} berhasil!</strong><br>
+      Laba Bersih: <strong>${fmt(d.labaBersih)}</strong> telah dipindahkan ke Laba Ditahan.<br>
+      Periode dikunci. Snapshot disimpan untuk laporan historis.
+    </div>`;
+}
+
+/* =========================================================
+   LAPORAN PERIODIK
+   ========================================================= */
+function getInvoiceLines(dari, sampai) {
+  const out = [];
+  DB.invoice.forEach(inv => {
+    if (inv.tanggal >= dari && inv.tanggal <= sampai) {
+      inv.items.forEach(i => {
+        out.push({ tgl: inv.tanggal, invNo: inv.no, customer: inv.customerNama, produkKode: i.produkKode, produkNama: i.produkNama, qty: i.qty, harga: i.harga, subtotal: i.subtotal, hpp: i.hpp });
+      });
+    }
+  });
+  return out;
+}
+function getGRNLines(dari, sampai) {
+  const out = [];
+  DB.grn.forEach(g => {
+    if (g.tanggal >= dari && g.tanggal <= sampai) {
+      g.items.forEach(i => {
+        const ppn = i.subtotal * 0.11;
+        out.push({ tgl: g.tanggal, grnNo: g.no, supplier: g.supplierNama, produkKode: i.produkKode, produkNama: i.produkNama, qty: i.qty, harga: i.harga, subtotal: i.subtotal, ppn });
+      });
+    }
+  });
+  return out;
+}
+function renderLapPenjualan() {
+  const dari = document.getElementById('lapJualDari').value || '0000-01-01';
+  const sampai = document.getElementById('lapJualSampai').value || '9999-12-31';
+  const lines = getInvoiceLines(dari, sampai);
+  const total = lines.reduce((s,l) => s + l.subtotal, 0);
+  const totalHpp = lines.reduce((s,l) => s + l.hpp, 0);
+  document.getElementById('lapJualTotal').textContent = fmt(total);
+  document.getElementById('lapJualHPP').textContent = fmt(totalHpp);
+  document.getElementById('lapJualLaba').textContent = fmt(total - totalHpp);
+  const perCust = {};
+  lines.forEach(l => { perCust[l.customer] = (perCust[l.customer] || 0) + l.subtotal; });
+  document.querySelector('#tblLapJualCust tbody').innerHTML = Object.keys(perCust).map(k => `
+    <tr class="border-b"><td class="p-2">${k}</td><td class="p-2 text-right">${fmt(perCust[k])}</td></tr>
+  `).join('') || '<tr><td colspan="2" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+  const perProd = {};
+  lines.forEach(l => {
+    if (!perProd[l.produkNama]) perProd[l.produkNama] = { qty: 0, total: 0, hpp: 0 };
+    perProd[l.produkNama].qty += l.qty;
+    perProd[l.produkNama].total += l.subtotal;
+    perProd[l.produkNama].hpp += l.hpp;
+  });
+  document.querySelector('#tblLapJualProd tbody').innerHTML = Object.keys(perProd).map(k => {
+    const d = perProd[k];
+    return `<tr class="border-b"><td class="p-2">${k}</td><td class="p-2 text-right">${fmtNum(d.qty)}</td><td class="p-2 text-right">${fmt(d.total)}</td><td class="p-2 text-right">${fmt(d.hpp)}</td><td class="p-2 text-right font-semibold text-green-600">${fmt(d.total - d.hpp)}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+  document.querySelector('#tblLapJualDetail tbody').innerHTML = lines.map(l => `
+    <tr class="border-b text-xs">
+      <td class="p-2">${l.tgl}</td><td class="p-2 font-mono">${l.invNo}</td><td class="p-2">${l.customer}</td>
+      <td class="p-2">${l.produkNama}</td><td class="p-2 text-right">${l.qty}</td>
+      <td class="p-2 text-right">${fmt(l.harga)}</td><td class="p-2 text-right">${fmt(l.subtotal)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+}
+function renderLapPembelian() {
+  const dari = document.getElementById('lapBeliDari').value || '0000-01-01';
+  const sampai = document.getElementById('lapBeliSampai').value || '9999-12-31';
+  const lines = getGRNLines(dari, sampai);
+  const totalDpp = lines.reduce((s,l) => s + l.subtotal, 0);
+  const totalPPN = lines.reduce((s,l) => s + l.ppn, 0);
+  document.getElementById('lapBeliTotal').textContent = fmt(totalDpp);
+  document.getElementById('lapBeliPPN').textContent = fmt(totalPPN);
+  document.getElementById('lapBeliBayar').textContent = fmt(totalDpp + totalPPN);
+  const perSup = {};
+  lines.forEach(l => { perSup[l.supplier] = (perSup[l.supplier] || 0) + l.subtotal; });
+  document.querySelector('#tblLapBeliSup tbody').innerHTML = Object.keys(perSup).map(k => `
+    <tr class="border-b"><td class="p-2">${k}</td><td class="p-2 text-right">${fmt(perSup[k])}</td></tr>
+  `).join('') || '<tr><td colspan="2" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+  const perProd = {};
+  lines.forEach(l => {
+    if (!perProd[l.produkNama]) perProd[l.produkNama] = { qty: 0, total: 0 };
+    perProd[l.produkNama].qty += l.qty;
+    perProd[l.produkNama].total += l.subtotal;
+  });
+  document.querySelector('#tblLapBeliProd tbody').innerHTML = Object.keys(perProd).map(k => `
+    <tr class="border-b"><td class="p-2">${k}</td><td class="p-2 text-right">${fmtNum(perProd[k].qty)}</td><td class="p-2 text-right">${fmt(perProd[k].total)}</td></tr>
+  `).join('') || '<tr><td colspan="3" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+  document.querySelector('#tblLapBeliDetail tbody').innerHTML = lines.map(l => `
+    <tr class="border-b text-xs">
+      <td class="p-2">${l.tgl}</td><td class="p-2 font-mono">${l.grnNo}</td><td class="p-2">${l.supplier}</td>
+      <td class="p-2">${l.produkNama}</td><td class="p-2 text-right">${l.qty}</td>
+      <td class="p-2 text-right">${fmt(l.harga)}</td><td class="p-2 text-right">${fmt(l.subtotal)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
+}
+
+function resetData() {
+  if (!confirm('Reset semua data demo?')) return;
+  location.reload();
+}
+
+/* =========================================================
+   SEED DUMMY DATA
+   ========================================================= */
+function seed() {
+  DB.suppliers = [
+    { kode: 'S001', nama: 'PT Sumber Makmur', alamat: 'Jl. Industri Raya No. 45, Jakarta Utara', npwp: '01.111.222.3-401.000', status: 'PKP' },
+    { kode: 'S002', nama: 'CV Aneka Supply', alamat: 'Jl. Pasar Baru No. 12, Bandung', npwp: '02.222.333.4-402.000', status: 'PKP' },
+    { kode: 'S003', nama: 'PT Grosir Utama', alamat: 'Jl. Raya Surabaya No. 88, Surabaya', npwp: '03.333.444.5-403.000', status: 'PKP' },
+  ];
+  DB.counter.sup = 3;
+  DB.customers = [
+    { kode: 'C001', nama: 'Toko Sinar Jaya', alamat: 'Jl. Merdeka No. 10, Jakarta Pusat', npwp: '3171012345670001', status: 'Non-PKP' },
+    { kode: 'C002', nama: 'CV Maju Terus', alamat: 'Jl. Sudirman No. 25, Bekasi', npwp: '3275012345670002', status: 'Non-PKP' },
+    { kode: 'C003', nama: 'UD Berkah Abadi', alamat: 'Jl. Ahmad Yani No. 5, Tangerang', npwp: '3671012345670003', status: 'Non-PKP' },
+    { kode: 'C004', nama: 'Toko Amanah', alamat: 'Jl. Diponegoro No. 77, Depok', npwp: '3276012345670004', status: 'Non-PKP' },
+    { kode: 'C005', nama: 'Koperasi Warga Sejahtera', alamat: 'Jl. Kartini No. 33, Bogor', npwp: '3201012345670005', status: 'Non-PKP' },
+  ];
+  DB.counter.cust = 5;
+  DB.products = [
+    { kode: 'P001', nama: 'Beras Premium 5kg', satuan: 'sak', qty: 0, hppAvg: 0 },
+    { kode: 'P002', nama: 'Minyak Goreng 2L', satuan: 'karton', qty: 0, hppAvg: 0 },
+    { kode: 'P003', nama: 'Gula Pasir 1kg', satuan: 'karton', qty: 0, hppAvg: 0 },
+    { kode: 'P004', nama: 'Tepung Terigu 1kg', satuan: 'karton', qty: 0, hppAvg: 0 },
+    { kode: 'P005', nama: 'Telur Ayam 1tray', satuan: 'tray', qty: 0, hppAvg: 0 },
+    { kode: 'P006', nama: 'Sabun Cuci 800ml', satuan: 'karton', qty: 0, hppAvg: 0 },
+  ];
+  DB.counter.prod = 6;
+
+  postJurnal('2026-10-01', 'Setoran Modal Awal', [
+    { akun: '101', nama: 'Kas / Bank', debit: 500000000, kredit: 0 },
+    { akun: '301', nama: 'Modal Disetor', debit: 0, kredit: 500000000 },
+  ]);
+
+  createPO('S001', '2026-10-02', [
+    { produkKode: 'P001', qty: 100, harga: 55000 },
+    { produkKode: 'P002', qty: 80, harga: 32000 },
+  ]);
+  doGRN(DB.po[0].no, '2026-10-03');
+
+  createPO('S002', '2026-10-05', [
+    { produkKode: 'P003', qty: 200, harga: 14000 },
+    { produkKode: 'P004', qty: 150, harga: 11000 },
+    { produkKode: 'P005', qty: 100, harga: 22000 },
+  ]);
+  doGRN(DB.po[1].no, '2026-10-06');
+
+  createPO('S003', '2026-10-10', [
+    { produkKode: 'P006', qty: 120, harga: 18000 },
+    { produkKode: 'P001', qty: 50, harga: 56000 },
+  ]);
+  doGRN(DB.po[2].no, '2026-10-11');
+
+  createSO('C001', '2026-10-04', [
+    { produkKode: 'P001', qty: 30, harga: 68000 },
+    { produkKode: 'P002', qty: 25, harga: 40000 },
+  ]);
+  doInvoice(DB.so[0].no, '2026-10-04');
+
+  createSO('C002', '2026-10-07', [
+    { produkKode: 'P003', qty: 50, harga: 17500 },
+    { produkKode: 'P004', qty: 40, harga: 14000 },
+    { produkKode: 'P005', qty: 20, harga: 28000 },
+  ]);
+  doInvoice(DB.so[1].no, '2026-10-07');
+
+  createSO('C003', '2026-10-12', [
+    { produkKode: 'P006', qty: 40, harga: 23000 },
+    { produkKode: 'P001', qty: 20, harga: 70000 },
+  ]);
+  doInvoice(DB.so[2].no, '2026-10-12');
+
+  createSO('C004', '2026-10-15', [
+    { produkKode: 'P002', qty: 30, harga: 41000 },
+    { produkKode: 'P003', qty: 60, harga: 18000 },
+  ]);
+  doInvoice(DB.so[3].no, '2026-10-15');
+
+  createSO('C005', '2026-10-18', [
+    { produkKode: 'P004', qty: 50, harga: 14500 },
+    { produkKode: 'P005', qty: 30, harga: 29000 },
+    { produkKode: 'P006', qty: 30, harga: 24000 },
+  ]);
+  doInvoice(DB.so[4].no, '2026-10-18');
+
+  postJurnal('2026-10-20', 'Beban Gaji Karyawan', [
+    { akun: '601', nama: 'Beban Gaji & Tunjangan', debit: 8500000, kredit: 0 },
+    { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: 8500000 },
+  ]);
+  postJurnal('2026-10-22', 'Beban Listrik & Internet', [
+    { akun: '603', nama: 'Beban Listrik, Air & Telepon', debit: 1500000, kredit: 0 },
+    { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: 1500000 },
+  ]);
+  postJurnal('2026-10-25', 'Beban Transportasi', [
+    { akun: '604', nama: 'Beban Transportasi', debit: 800000, kredit: 0 },
+    { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: 800000 },
+  ]);
+
+  document.getElementById('lapJualDari').value = '2026-10-01';
+  document.getElementById('lapJualSampai').value = '2026-10-31';
+  document.getElementById('lapBeliDari').value = '2026-10-01';
+  document.getElementById('lapBeliSampai').value = '2026-10-31';
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function createPO(supKode, tgl, items) {
+  const sup = DB.suppliers.find(s => s.kode === supKode);
+  DB.counter.po++;
+  const fullItems = items.map(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    return { ...i, produkNama: prod.nama, subtotal: i.qty * i.harga };
+  });
+  DB.po.push({
+    no: 'PO' + String(DB.counter.po).padStart(4,'0'),
+    tanggal: tgl, supplierKode: supKode, supplierNama: sup.nama,
+    items: fullItems, total: fullItems.reduce((s,i) => s + i.subtotal, 0),
+    totalItem: fullItems.length, status: 'OPEN'
+  });
+}
+function doGRN(poNo, tgl) {
+  const po = DB.po.find(p => p.no === poNo);
+  DB.counter.grn++;
+  const dpp = po.total, ppn = dpp * 0.11, total = dpp + ppn;
+  po.items.forEach(item => {
+    const prod = DB.products.find(p => p.kode === item.produkKode);
+    const nilaiLama = prod.qty * prod.hppAvg;
+    const nilaiBaru = nilaiLama + item.subtotal;
+    prod.qty += item.qty;
+    prod.hppAvg = prod.qty > 0 ? nilaiBaru / prod.qty : 0;
+  });
+  postJurnal(tgl, `GRN ${po.no}`, [
+    { akun: '103', nama: 'Persediaan Barang Dagang', debit: dpp, kredit: 0 },
+    { akun: '104', nama: 'PPN Masukan', debit: ppn, kredit: 0 },
+    { akun: '101', nama: 'Kas / Bank', debit: 0, kredit: total },
+  ]);
+  DB.grn.push({
+    no: 'GRN' + String(DB.counter.grn).padStart(4,'0'),
+    tanggal: tgl, poNo: po.no, supplierNama: po.supplierNama,
+    items: po.items.map(i => ({ ...i })), dpp, ppn, total
+  });
+  po.status = 'CLOSED';
+}
+function createSO(custKode, tgl, items) {
+  const cust = DB.customers.find(c => c.kode === custKode);
+  DB.counter.so++;
+  const fullItems = items.map(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    return { ...i, produkNama: prod.nama, subtotal: i.qty * i.harga };
+  });
+  DB.so.push({
+    no: 'SO' + String(DB.counter.so).padStart(4,'0'),
+    tanggal: tgl, customerKode: custKode, customerNama: cust.nama,
+    items: fullItems, total: fullItems.reduce((s,i) => s + i.subtotal, 0),
+    totalItem: fullItems.length, status: 'OPEN'
+  });
+}
+function doInvoice(soNo, tgl) {
+  const so = DB.so.find(s => s.no === soNo);
+  DB.counter.inv++;
+  const penjualan = so.total;
+  let hpp = 0;
+  const itemsWithHpp = so.items.map(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    const hppItem = prod.hppAvg * i.qty;
+    hpp += hppItem;
+    return { ...i, hpp: hppItem, hppAvg: prod.hppAvg };
+  });
+  itemsWithHpp.forEach(i => {
+    const prod = DB.products.find(p => p.kode === i.produkKode);
+    prod.qty -= i.qty;
+  });
+  postJurnal(tgl, `Invoice ${so.no} - ${so.customerNama}`, [
+    { akun: '101', nama: 'Kas / Bank', debit: penjualan, kredit: 0 },
+    { akun: '401', nama: 'Penjualan', debit: 0, kredit: penjualan },
+  ]);
+  postJurnal(tgl, `HPP ${so.no}`, [
+    { akun: '501', nama: 'Harga Pokok Penjualan (HPP)', debit: hpp, kredit: 0 },
+    { akun: '103', nama: 'Persediaan Barang Dagang', debit: 0, kredit: hpp },
+  ]);
+  DB.invoice.push({
+    no: 'INV' + String(DB.counter.inv).padStart(4,'0'),
+    tanggal: tgl, soNo: so.no, customerNama: so.customerNama,
+    items: itemsWithHpp, penjualan, hpp, laba: penjualan - hpp,
+    fakturPajak: null,
+  });
+  so.status = 'CLOSED';
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+try {
+  seed();
+  console.log('✅ Seed OK. Produk:', DB.products.length, 'Customer:', DB.customers.length);
+  renderAll();
+  renderLapPenjualan();
+  renderLapPembelian();
+  console.log('✅ Render OK.');
+} catch (e) {
+  console.error('❌ INIT ERROR:', e);
+  alert('Error inisialisasi: ' + e.message);
+}
+</script>
+
+</body>
+</html>
