@@ -25,23 +25,13 @@
   .disabled-overlay { opacity: 0.5; pointer-events: none; }
 
   .print-toolbar {
-    position: sticky;
-    z-index: 20;
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
-    padding: 12px 16px;
+    position: sticky; z-index: 20; background: white;
+    border-bottom: 1px solid #e2e8f0; padding: 12px 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
   .print-toolbar-top { top: 0; }
   .print-toolbar-bottom { bottom: 0; border-bottom: none; border-top: 1px solid #e2e8f0; box-shadow: 0 -2px 8px rgba(0,0,0,0.06); }
-  .print-hint {
-    background: #eff6ff;
-    border-left: 4px solid #3b82f6;
-    padding: 8px 12px;
-    font-size: 12px;
-    color: #1e40af;
-    border-radius: 4px;
-  }
+  .print-hint { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 8px 12px; font-size: 12px; color: #1e40af; border-radius: 4px; }
   .checkbox-inv { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
   tr.row-selected { background: #dbeafe !important; }
 
@@ -51,61 +41,19 @@
   .invoice-paper .line-item th { border-bottom: 1px solid #000; padding: 4px; text-align: left; font-size: 10px; }
   .invoice-paper .line-item td { padding: 4px; border-bottom: 1px dotted #999; }
 
-  /* Hidden render container untuk PDF — tetap di viewport, tapi tidak menghalangi */
-  #pdfRenderStage {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 148mm;
-    background: white;
-    z-index: 1;
-    opacity: 0;
-    pointer-events: none;
-    overflow: hidden;
-  }
+  #pdfRenderStage { position: fixed; top: 0; left: 0; width: 148mm; background: white; z-index: 1; opacity: 0; pointer-events: none; overflow: hidden; }
 
   @media print {
     body * { visibility: hidden; }
     #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
-    #invoicePrintArea {
-      position: absolute; left: 0; top: 0;
-      width: 148mm; padding: 0; font-size: 11px;
-    }
-    #invoicePrintArea .invoice-paper-page {
-      width: 148mm;
-      min-height: 210mm;
-      padding: 10mm;
-      page-break-after: always;
-      page-break-inside: avoid;
-    }
+    #invoicePrintArea { position: absolute; left: 0; top: 0; width: 148mm; padding: 0; font-size: 11px; }
+    #invoicePrintArea .invoice-paper-page { width: 148mm; min-height: 210mm; padding: 10mm; page-break-after: always; page-break-inside: avoid; }
     #invoicePrintArea .invoice-paper-page:last-child { page-break-after: auto; }
     @page { size: A5 portrait; margin: 0; }
   }
 
-  /* Toast */
-  .toast-box {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: #1e293b;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    z-index: 9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .spinner {
-    border: 3px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 0.8s linear infinite;
-  }
+  .toast-box { position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; }
+  .spinner { border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
@@ -538,14 +486,8 @@
               </ul>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
-              <div class="bg-slate-50 p-3 rounded">
-                <div class="text-xs text-slate-500">Periode Aktif</div>
-                <div class="font-bold text-lg" id="closingPeriode">-</div>
-              </div>
-              <div class="bg-slate-50 p-3 rounded">
-                <div class="text-xs text-slate-500">Status</div>
-                <div class="font-bold text-lg" id="closingStatus">-</div>
-              </div>
+              <div class="bg-slate-50 p-3 rounded"><div class="text-xs text-slate-500">Periode Aktif</div><div class="font-bold text-lg" id="closingPeriode">-</div></div>
+              <div class="bg-slate-50 p-3 rounded"><div class="text-xs text-slate-500">Status</div><div class="font-bold text-lg" id="closingStatus">-</div></div>
             </div>
             <table class="w-full text-sm mb-4"><tbody>
               <tr><td class="p-2">Total Penjualan</td><td class="p-2 font-semibold" id="closingPenjualan">Rp 0</td></tr>
@@ -597,6 +539,7 @@
                 <option>JURNAL KOREKSI</option>
                 <option>FAKTUR PAJAK</option>
                 <option>MASTER DATA</option>
+                <option>PO DIBUAT</option>
               </select>
               <button onclick="renderAuditLog()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">🔍 Filter</button>
               <button onclick="exportAuditLog()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">⬇ Excel</button>
@@ -676,12 +619,24 @@
   </div>
 </div>
 
+<!-- MODAL PO — dengan field No. PO Customer -->
 <div id="modalPO" class="modal fixed inset-0 bg-black/50 items-center justify-center z-50">
   <div class="bg-white rounded-lg p-6 w-[800px] max-h-[90vh] overflow-y-auto">
     <h3 class="font-bold mb-3">Buat Purchase Order</h3>
     <div class="grid grid-cols-2 gap-3 mb-3">
       <div><label class="text-xs font-semibold">Supplier</label><select id="poSupplier" class="border w-full p-2 rounded text-sm"></select></div>
       <div><label class="text-xs font-semibold">Tanggal</label><input id="poTanggal" type="date" class="border w-full p-2 rounded text-sm"></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="text-xs font-semibold">No. PO Customer (opsional)</label>
+        <input id="poCustomer" placeholder="Contoh: PO-CUST/2026/001" class="border w-full p-2 rounded text-sm">
+        <div class="text-xs text-slate-500 mt-1">Nomor PO dari customer/supplier. Kosongkan jika tidak ada.</div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold">No. PO Internal (auto)</label>
+        <input id="poInternalPreview" readonly class="border w-full p-2 rounded text-sm bg-slate-100 text-slate-600" value="(auto-generate)">
+      </div>
     </div>
     <div class="border rounded mb-3">
       <div class="bg-slate-100 p-2 flex justify-between items-center">
@@ -904,7 +859,6 @@
   </div>
 </div>
 
-<!-- HIDDEN RENDER STAGE UNTUK PDF -->
 <div id="pdfRenderStage" aria-hidden="true"></div>
 
 <script>
@@ -962,25 +916,17 @@ const periodLabel = (p) => {
   return bulan[parseInt(m)-1] + ' ' + y;
 };
 
-/* =========================================================
-   AUDIT LOG
-   ========================================================= */
 function logAudit(aksi, detail, sebelum = '-', sesudah = '-') {
   DB.counter.audit++;
   DB.auditLog.push({
     id: DB.counter.audit,
     waktu: nowISO(),
-    aksi,
-    user: 'admin',
-    detail,
+    aksi, user: 'admin', detail,
     sebelum: String(sebelum),
     sesudah: String(sesudah),
   });
 }
 
-/* =========================================================
-   INVOICE SELECTION
-   ========================================================= */
 let selectedInvoices = new Set();
 let currentPrintBatch = [];
 
@@ -1031,9 +977,6 @@ function updateInvoiceSelectionUI() {
   if (selectAll) { selectAll.checked = allChecked; selectAll.indeterminate = indeterminate; }
 }
 
-/* =========================================================
-   NAV
-   ========================================================= */
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   const target = document.getElementById('page-' + name);
@@ -1059,12 +1002,14 @@ function openModal(id) {
   if (id === 'modalPO') {
     document.getElementById('poSupplier').innerHTML = DB.suppliers.map(s => `<option value="${s.kode}">${s.nama}</option>`).join('');
     document.getElementById('poTanggal').value = today();
+    document.getElementById('poCustomer').value = '';
+    document.getElementById('poInternalPreview').value = '(auto-generate)';
     document.getElementById('poLines').innerHTML = '';
     addPOLine();
   }
   if (id === 'modalGRN') {
     const poOpen = DB.po.filter(p => p.status === 'OPEN');
-    document.getElementById('grnPO').innerHTML = poOpen.map(p => `<option value="${p.no}">${p.no} - ${p.supplierNama}</option>`).join('');
+    document.getElementById('grnPO').innerHTML = poOpen.map(p => `<option value="${p.no}">${p.no}${p.poCustomer ? ' (Ref: ' + p.poCustomer + ')' : ''} - ${p.supplierNama}</option>`).join('');
     previewGRN();
   }
   if (id === 'modalSO') {
@@ -1082,9 +1027,6 @@ function openModal(id) {
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-/* =========================================================
-   EXPORT EXCEL
-   ========================================================= */
 function exportExcel(tableId, filename) {
   const table = document.getElementById(tableId);
   if (!table) return alert('Tabel tidak ditemukan');
@@ -1170,9 +1112,6 @@ function exportAuditLog() {
   XLSX.writeFile(wb, `audit-log_${today()}.xlsx`);
 }
 
-/* =========================================================
-   MASTER
-   ========================================================= */
 function addCustomer() {
   const nama = document.getElementById('custNama').value.trim();
   const alamat = document.getElementById('custAlamat').value.trim();
@@ -1223,9 +1162,6 @@ function addProduk() {
   closeModal('modalProduk'); renderAll();
 }
 
-/* =========================================================
-   PO
-   ========================================================= */
 function addPOLine() {
   const tbody = document.getElementById('poLines');
   const tr = document.createElement('tr');
@@ -1255,6 +1191,7 @@ function calcPOTotal() {
 function addPO() {
   const supKode = document.getElementById('poSupplier').value;
   const tgl = document.getElementById('poTanggal').value || today();
+  const poCustomer = document.getElementById('poCustomer').value.trim();
   const items = [];
   document.querySelectorAll('#poLines tr').forEach(tr => {
     const prodKode = tr.querySelector('.produk-select').value;
@@ -1268,25 +1205,27 @@ function addPO() {
   if (!supKode || items.length === 0) return alert('Pilih supplier dan minimal 1 item');
   const sup = DB.suppliers.find(s => s.kode === supKode);
   DB.counter.po++;
+  const internalNo = 'PO' + String(DB.counter.po).padStart(4,'0');
   DB.po.push({
-    no: 'PO' + String(DB.counter.po).padStart(4,'0'),
+    no: internalNo,
+    poCustomer: poCustomer || null,
     tanggal: tgl, supplierKode: supKode, supplierNama: sup.nama,
     items, total: items.reduce((s,i) => s + i.subtotal, 0),
     totalItem: items.length, status: 'OPEN'
   });
+  logAudit('PO DIBUAT', `PO ${internalNo}${poCustomer ? ' (Ref: ' + poCustomer + ')' : ''}`, '-', `Supplier: ${sup.nama}, Total: ${fmt(items.reduce((s,i) => s + i.subtotal, 0))}`);
   closeModal('modalPO'); renderAll();
 }
 
-/* =========================================================
-   GRN
-   ========================================================= */
 function previewGRN() {
   const poNo = document.getElementById('grnPO').value;
   const po = DB.po.find(p => p.no === poNo);
   if (!po) { document.getElementById('grnPreview').innerHTML = '<em>Tidak ada PO terbuka</em>'; return; }
   const dpp = po.total;
   const ppn = dpp * 0.11;
+  const refLine = po.poCustomer ? `<div class="text-xs text-blue-600 mb-1">Ref PO Customer: <strong>${po.poCustomer}</strong></div>` : '';
   document.getElementById('grnPreview').innerHTML = `
+    ${refLine}
     <div class="font-semibold mb-1">${po.supplierNama} — ${po.items.length} item</div>
     <table class="w-full">
       <thead><tr><th class="text-left">Produk</th><th class="text-right">Qty</th><th class="text-right">Subtotal</th></tr></thead>
@@ -1321,16 +1260,14 @@ function addGRN() {
   ]);
   DB.grn.push({
     no: 'GRN' + String(DB.counter.grn).padStart(4,'0'),
-    tanggal: tgl, poNo: po.no, supplierNama: po.supplierNama,
+    tanggal: tgl, poNo: po.no, poCustomer: po.poCustomer || null,
+    supplierNama: po.supplierNama,
     items: po.items.map(i => ({ ...i })), dpp, ppn, total
   });
   po.status = 'CLOSED';
   closeModal('modalGRN'); renderAll();
 }
 
-/* =========================================================
-   SO
-   ========================================================= */
 function addSOLine() {
   const tbody = document.getElementById('soLines');
   const tr = document.createElement('tr');
@@ -1382,9 +1319,6 @@ function addSO() {
   closeModal('modalSO'); renderAll();
 }
 
-/* =========================================================
-   INVOICE
-   ========================================================= */
 function previewInvoice() {
   const soNo = document.getElementById('invSO').value;
   const so = DB.so.find(s => s.no === soNo);
@@ -1450,11 +1384,7 @@ function addInvoice() {
   closeModal('modalInvoice'); renderAll();
 }
 
-/* =========================================================
-   FAKTUR PAJAK
-   ========================================================= */
 let currentFakturInvNo = null;
-
 function openFakturModal(invNo) {
   const inv = DB.invoice.find(i => i.no === invNo);
   if (!inv) return;
@@ -1475,7 +1405,6 @@ function openFakturModal(invNo) {
   previewFakturPembulatan();
   document.getElementById('modalFakturPajak').classList.add('active');
 }
-
 function previewFakturPembulatan() {
   const inv = DB.invoice.find(i => i.no === currentFakturInvNo);
   if (!inv) return;
@@ -1486,15 +1415,9 @@ function previewFakturPembulatan() {
   document.getElementById('fakturDelta').textContent = (pembulatan >= 0 ? '+' : '') + fmt(pembulatan);
   document.getElementById('fakturSesudah').textContent = fmt(sesudah);
   const info = document.getElementById('fakturPembulatanInfo');
-  if (pembulatan === 0) {
-    info.textContent = 'Tidak ada pembulatan — nilai invoice tetap.';
-    info.className = 'text-xs mb-3 text-slate-500';
-  } else {
-    info.textContent = `Nilai invoice akan disesuaikan otomatis menjadi ${fmt(sesudah)}`;
-    info.className = 'text-xs mb-3 text-blue-600 font-semibold';
-  }
+  if (pembulatan === 0) { info.textContent = 'Tidak ada pembulatan — nilai invoice tetap.'; info.className = 'text-xs mb-3 text-slate-500'; }
+  else { info.textContent = `Nilai invoice akan disesuaikan otomatis menjadi ${fmt(sesudah)}`; info.className = 'text-xs mb-3 text-blue-600 font-semibold'; }
 }
-
 function saveFakturPajak() {
   const inv = DB.invoice.find(i => i.no === currentFakturInvNo);
   if (!inv) return;
@@ -1506,11 +1429,7 @@ function saveFakturPajak() {
   if (penjualanBaru <= 0) return alert('Nilai invoice setelah pembulatan tidak boleh ≤ 0');
   const oldPembulatan = inv.fakturPajak ? inv.fakturPajak.pembulatan : 0;
   const oldNomor = inv.fakturPajak ? inv.fakturPajak.nomor : '-';
-  inv.fakturPajak = {
-    nomor, pembulatan, penjualanAsli,
-    penjualanSetelah: penjualanBaru,
-    tglPasang: today(),
-  };
+  inv.fakturPajak = { nomor, pembulatan, penjualanAsli, penjualanSetelah: penjualanBaru, tglPasang: today() };
   const delta = penjualanBaru - inv.penjualan;
   if (delta !== 0) {
     postJurnal(today(), `Penyesuaian pembulatan ${inv.no}`, [
@@ -1526,9 +1445,6 @@ function saveFakturPajak() {
   alert(`✅ Faktur pajak berhasil dipasang.\n\nNo: ${nomor}\nNilai Invoice: ${fmt(penjualanBaru)}${pembulatan !== 0 ? '\nPembulatan: ' + fmt(pembulatan) : ''}`);
 }
 
-/* =========================================================
-   GENERATE INVOICE HTML (untuk preview & PDF)
-   ========================================================= */
 function generateInvoiceHTML(invNo) {
   const inv = DB.invoice.find(i => i.no === invNo);
   if (!inv) return '';
@@ -1606,9 +1522,6 @@ function generateInvoiceHTML(invNo) {
   `;
 }
 
-/* =========================================================
-   PRINT PREVIEW & BATCH
-   ========================================================= */
 function printSelectedInvoices() {
   if (selectedInvoices.size === 0) return alert('Pilih minimal 1 invoice dulu');
   currentPrintBatch = Array.from(selectedInvoices);
@@ -1620,17 +1533,13 @@ function printInvoice(invNo) {
 }
 function downloadSelectedInvoicesPDF() {
   if (selectedInvoices.size === 0) return alert('Pilih minimal 1 invoice dulu');
-  const invNos = Array.from(selectedInvoices);
-  generatePDFBatch(invNos);
+  generatePDFBatch(Array.from(selectedInvoices));
 }
-function downloadInvoicePDF(invNo) {
-  generatePDFBatch([invNo]);
-}
+function downloadInvoicePDF(invNo) { generatePDFBatch([invNo]); }
 function downloadCurrentBatchPDF() {
   if (currentPrintBatch.length === 0) return;
   generatePDFBatch(currentPrintBatch);
 }
-
 function showPrintPreviewBatch(invNos) {
   if (!invNos || invNos.length === 0) return;
   document.getElementById('printCounter').textContent = `Menampilkan ${invNos.length} invoice`;
@@ -1649,46 +1558,32 @@ function printCurrentBatch() {
   window.print();
 }
 
-/* =========================================================
-   GENERATE PDF (langsung download)
-   Pakai html2canvas + jsPDF
-   ========================================================= */
 async function generatePDFBatch(invNos) {
   if (!invNos || invNos.length === 0) return alert('Tidak ada invoice');
   if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
     return alert('Library PDF belum ter-load. Cek koneksi internet atau refresh halaman.');
   }
-
   const { jsPDF } = window.jspdf;
 
-  // Tampilkan progress toast
   const toast = document.createElement('div');
   toast.className = 'toast-box';
   toast.innerHTML = `<div class="spinner"></div><span>Generating PDF (0/${invNos.length})...</span>`;
   document.body.appendChild(toast);
   const updateToast = (txt) => { toast.querySelector('span').textContent = txt; };
 
-  // Siapkan stage render — letakkan di viewport (bukan -9999px)
   const stage = document.getElementById('pdfRenderStage');
   stage.innerHTML = '';
   stage.style.opacity = '0';
   stage.style.zIndex = '1';
 
   try {
-    // PDF A5 Portrait: 148mm x 210mm
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a5'
-    });
-
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
     const pdfWidth = 148;
     const pdfHeight = 210;
 
     for (let i = 0; i < invNos.length; i++) {
       updateToast(`Generating PDF (${i+1}/${invNos.length})...`);
 
-      // Buat halaman invoice di stage
       const pageWrap = document.createElement('div');
       pageWrap.style.width = '148mm';
       pageWrap.style.minHeight = '210mm';
@@ -1700,7 +1595,6 @@ async function generatePDFBatch(invNos) {
       pageWrap.style.fontFamily = "'Segoe UI', Tahoma, sans-serif";
       pageWrap.innerHTML = generateInvoiceHTML(invNos[i]);
 
-      // Pastikan tidak double class
       const inner = pageWrap.querySelector('.invoice-paper-page');
       if (inner) {
         inner.style.width = '100%';
@@ -1709,11 +1603,8 @@ async function generatePDFBatch(invNos) {
       }
 
       stage.appendChild(pageWrap);
-
-      // Tunggu browser render dulu
       await new Promise(r => setTimeout(r, 80));
 
-      // Capture dengan html2canvas
       const canvas = await html2canvas(pageWrap, {
         scale: 2,
         useCORS: true,
@@ -1724,52 +1615,34 @@ async function generatePDFBatch(invNos) {
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-      // Hitung ukuran gambar di PDF
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      // Kalau ini bukan halaman pertama, tambah halaman
       if (i > 0) pdf.addPage();
-
-      // Kalau imgHeight > pdfHeight, scale down agar muat 1 halaman
       if (imgHeight <= pdfHeight) {
         pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       } else {
-        // Kalau konten lebih tinggi dari halaman, bagi jadi beberapa halaman
         const ratio = pdfHeight / imgHeight;
-        const scaledWidth = imgWidth;
-        const scaledHeight = pdfHeight;
-        // Fallback: paksa masuk 1 halaman dengan scale
-        pdf.addImage(imgData, 'JPEG', 0, 0, scaledWidth, scaledHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, pdfHeight);
       }
 
-      // Bersihkan page wrap setelah selesai
       stage.removeChild(pageWrap);
     }
 
-    // Nama file
     const filename = invNos.length === 1
       ? `invoice-${invNos[0]}.pdf`
       : `invoice-batch-${invNos.length}-${today()}.pdf`;
 
-    // Trigger download
     pdf.save(filename);
-
-    // Bersihkan
     stage.innerHTML = '';
     document.body.removeChild(toast);
 
-    // Tampilkan notifikasi sukses
     const success = document.createElement('div');
     success.className = 'toast-box';
     success.style.background = '#16a34a';
     success.innerHTML = `<span>✅ PDF berhasil didownload: ${filename}</span>`;
     document.body.appendChild(success);
-    setTimeout(() => {
-      if (document.body.contains(success)) document.body.removeChild(success);
-    }, 3000);
-
+    setTimeout(() => { if (document.body.contains(success)) document.body.removeChild(success); }, 3000);
   } catch (err) {
     console.error('PDF Error:', err);
     if (document.body.contains(toast)) document.body.removeChild(toast);
@@ -1778,19 +1651,14 @@ async function generatePDFBatch(invNos) {
   }
 }
 
-/* =========================================================
-   JURNAL KOREKSI
-   ========================================================= */
 function openModalJurnalKoreksi() {
   if (DB.isClosed) return alert('🔒 Periode tertutup. Unlock periode dulu untuk koreksi.');
   document.getElementById('jkTanggal').value = today();
   document.getElementById('jkKet').value = '';
   document.getElementById('jkLines').innerHTML = '';
-  addJKLine();
-  addJKLine();
+  addJKLine(); addJKLine();
   document.getElementById('modalJurnalKoreksi').classList.add('active');
 }
-
 function addJKLine() {
   const tbody = document.getElementById('jkLines');
   const tr = document.createElement('tr');
@@ -1809,7 +1677,6 @@ function addJKLine() {
   tbody.appendChild(tr);
   calcJK();
 }
-
 function calcJK() {
   let tD = 0, tK = 0;
   document.querySelectorAll('#jkLines tr').forEach(tr => {
@@ -1820,16 +1687,11 @@ function calcJK() {
   document.getElementById('jkTotalKredit').textContent = fmt(tK);
   const diff = Math.abs(tD - tK);
   const el = document.getElementById('jkBalance');
-  if (tD === 0 && tK === 0) {
-    el.textContent = '';
-  } else if (diff < 0.5 && tD > 0) {
-    el.innerHTML = '<span class="text-green-600 font-semibold">✓ Balance — siap disimpan</span>';
-  } else {
-    el.innerHTML = `<span class="text-red-600 font-semibold">⚠ Tidak Balance: selisih ${fmt(diff)}</span>`;
-  }
+  if (tD === 0 && tK === 0) { el.textContent = ''; }
+  else if (diff < 0.5 && tD > 0) { el.innerHTML = '<span class="text-green-600 font-semibold">✓ Balance — siap disimpan</span>'; }
+  else { el.innerHTML = `<span class="text-red-600 font-semibold">⚠ Tidak Balance: selisih ${fmt(diff)}</span>`; }
   return { tD, tK, balanced: diff < 0.5 && tD > 0 };
 }
-
 function saveJurnalKoreksi() {
   if (DB.isClosed) return alert('🔒 Periode tertutup. Unlock dulu.');
   const tgl = document.getElementById('jkTanggal').value || today();
@@ -1856,9 +1718,6 @@ function saveJurnalKoreksi() {
   alert('✅ Jurnal koreksi berhasil disimpan');
 }
 
-/* =========================================================
-   JURNAL
-   ========================================================= */
 function postJurnal(tgl, ket, lines) {
   DB.counter.jurnal++;
   const no = 'JV' + String(DB.counter.jurnal).padStart(5,'0');
@@ -1868,9 +1727,6 @@ function postJurnal(tgl, ket, lines) {
   });
 }
 
-/* =========================================================
-   CLOSING
-   ========================================================= */
 function doClosing() {
   if (DB.isClosed) return alert('Periode sudah ditutup');
   const d = getLabaRugiData();
@@ -1886,7 +1742,6 @@ function doClosing() {
     if (saldo < 0) jurnalLines.push({ akun: c.kode, nama: c.nama, debit: -saldo, kredit: 0 });
     else jurnalLines.push({ akun: c.kode, nama: c.nama, debit: 0, kredit: saldo });
   });
-
   DB.coa.filter(c => c.tipe === 'HPP' || c.tipe === 'Beban Operasional' || c.tipe === 'Beban Lain').forEach(c => {
     const saldo = DB.saldo[c.kode] || 0;
     if (Math.abs(saldo) < 0.5) return;
@@ -1897,25 +1752,15 @@ function doClosing() {
   let totalDebitClosing = jurnalLines.reduce((s, l) => s + l.debit, 0);
   let totalKreditClosing = jurnalLines.reduce((s, l) => s + l.kredit, 0);
   const selisih = totalDebitClosing - totalKreditClosing;
+  if (selisih > 0) jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: selisih, kredit: 0 });
+  else if (selisih < 0) jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: 0, kredit: -selisih });
 
-  if (selisih > 0) {
-    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: selisih, kredit: 0 });
-  } else if (selisih < 0) {
-    jurnalLines.push({ akun: '303', nama: 'Laba Ditahan', debit: 0, kredit: -selisih });
-  }
-
-  if (jurnalLines.length > 0) {
-    postJurnal(tglClosing, `Tutup Buku ${periodLabel(DB.currentPeriod)}`, jurnalLines);
-  }
+  if (jurnalLines.length > 0) postJurnal(tglClosing, `Tutup Buku ${periodLabel(DB.currentPeriod)}`, jurnalLines);
 
   DB.closedPeriods.push({
-    periode: DB.currentPeriod,
-    tglClosing,
-    penjualan: d.penjualan,
-    hpp: d.hpp,
-    beban: d.beban,
-    labaBersih: d.labaBersih,
-    status: 'CLOSED',
+    periode: DB.currentPeriod, tglClosing,
+    penjualan: d.penjualan, hpp: d.hpp, beban: d.beban,
+    labaBersih: d.labaBersih, status: 'CLOSED',
   });
 
   logAudit('TUTUP BUKU', `Periode ${periodLabel(DB.currentPeriod)}`, 'OPEN', `CLOSED, Laba Bersih: ${fmt(d.labaBersih)}`);
@@ -1926,8 +1771,7 @@ function doClosing() {
   document.getElementById('closingResult').innerHTML = `
     <div class="bg-green-50 border-l-4 border-green-500 p-3 text-sm">
       ✓ <strong>Tutup buku ${periodLabel(DB.currentPeriod)} berhasil!</strong><br>
-      Laba Bersih: <strong>${fmt(d.labaBersih)}</strong> telah dipindahkan ke Laba Ditahan.<br>
-      Periode dikunci. Snapshot disimpan untuk laporan historis.
+      Laba Bersih: <strong>${fmt(d.labaBersih)}</strong> telah dipindahkan ke Laba Ditahan.
     </div>`;
 }
 
@@ -1936,93 +1780,56 @@ function doUnlock() {
   const alasan = document.getElementById('unlockAlasan').value.trim();
   const password = document.getElementById('unlockPassword').value;
   const konfirm = document.getElementById('unlockKonfirm').checked;
-
   if (!alasan) return alert('Alasan wajib diisi');
   if (password !== 'admin123') return alert('Password salah');
   if (!konfirm) return alert('Centang konfirmasi dulu');
-
   const idx = DB.closedPeriods.findIndex(p => p.periode === DB.currentPeriod);
   if (idx === -1) return alert('Snapshot periode tidak ditemukan');
-
   const closingKet = `Tutup Buku ${periodLabel(DB.currentPeriod)}`;
   const closingJurnal = DB.jurnal.filter(j => j.keterangan === closingKet);
-
   if (closingJurnal.length > 0) {
     DB.counter.jurnal++;
     const revNo = 'JV' + String(DB.counter.jurnal).padStart(5,'0');
     closingJurnal.forEach(j => {
       DB.jurnal.push({
-        no: revNo,
-        tanggal: today(),
-        keterangan: `[REVERSE] ${closingKet}`,
-        akun: j.akun,
-        akunNama: j.akunNama,
-        debit: j.kredit,
-        kredit: j.debit,
+        no: revNo, tanggal: today(), keterangan: `[REVERSE] ${closingKet}`,
+        akun: j.akun, akunNama: j.akunNama,
+        debit: j.kredit, kredit: j.debit,
       });
       DB.saldo[j.akun] = (DB.saldo[j.akun] || 0) + (j.kredit - j.debit);
     });
   }
-
   DB.closedPeriods[idx].status = 'REOPENED';
   logAudit('UNLOCK', `Periode ${periodLabel(DB.currentPeriod)}`, 'CLOSED', `OPEN, Alasan: ${alasan}`);
-
   document.getElementById('unlockAlasan').value = '';
   document.getElementById('unlockPassword').value = '';
   document.getElementById('unlockKonfirm').checked = false;
   closeModal('modalUnlock');
-
   DB.isClosed = false;
   document.getElementById('lrPeriode').innerHTML = '';
   renderAll();
   document.getElementById('closingResult').innerHTML = `
     <div class="bg-orange-50 border-l-4 border-orange-500 p-3 text-sm">
-      🔓 <strong>Periode ${periodLabel(DB.currentPeriod)} berhasil dibuka kembali.</strong><br>
-      Jurnal closing telah dibatalkan (reverse).<br>
-      Alasan: <em>${alasan}</em><br>
-      Silakan edit transaksi, lalu tutup buku ulang.
+      🔓 <strong>Periode berhasil dibuka kembali.</strong><br>
+      Alasan: <em>${alasan}</em>
     </div>`;
 }
 
-/* =========================================================
-   RENDER
-   ========================================================= */
 function renderAll() {
   renderPeriodBadge();
-  renderDashboard();
-  renderCustomer();
-  renderSupplier();
-  renderProduk();
-  renderCOA();
-  renderPO();
-  renderGRN();
-  renderSO();
-  renderInvoice();
-  renderJurnal();
-  renderBukuBesar();
-  renderTrial();
-  renderLabaRugi();
-  renderNeraca();
-  renderArusKas();
-  renderClosing();
-  renderClosedPeriods();
-  renderAuditLog();
-  applyClosedLock();
+  renderDashboard(); renderCustomer(); renderSupplier(); renderProduk(); renderCOA();
+  renderPO(); renderGRN(); renderSO(); renderInvoice(); renderJurnal();
+  renderBukuBesar(); renderTrial(); renderLabaRugi(); renderNeraca(); renderArusKas();
+  renderClosing(); renderClosedPeriods(); renderAuditLog(); applyClosedLock();
 }
 
 function renderPeriodBadge() {
   document.getElementById('periodBadge').textContent = 'Periode: ' + periodLabel(DB.currentPeriod) + (DB.isClosed ? ' 🔒' : '');
 }
-
 function applyClosedLock() {
   document.querySelectorAll('.btn-add').forEach(b => {
-    if (DB.isClosed) {
-      b.classList.add('disabled-overlay');
-      b.title = 'Periode sudah ditutup';
-    } else {
-      b.classList.remove('disabled-overlay');
-      b.title = '';
-    }
+    if (DB.isClosed) { b.classList.add('disabled-overlay'); b.title = 'Periode sudah ditutup'; }
+    else { b.classList.remove('disabled-overlay'); b.title = ''; }
   });
 }
 
@@ -2126,7 +1933,10 @@ function renderCOA() {
 function renderPO() {
   document.querySelector('#tblPO tbody').innerHTML = DB.po.map(p => `
     <tr class="border-b">
-      <td class="p-2 font-mono text-xs">${p.no}</td>
+      <td class="p-2 font-mono text-xs">
+        ${p.no}
+        ${p.poCustomer ? `<div class="text-xs text-blue-600 mt-0.5">Ref: ${p.poCustomer}</div>` : ''}
+      </td>
       <td class="p-2">${p.tanggal}</td>
       <td class="p-2">${p.supplierNama}</td>
       <td class="p-2 text-right">${p.totalItem}</td>
@@ -2138,14 +1948,18 @@ function renderPO() {
 }
 function showPODetail(no) {
   const po = DB.po.find(p => p.no === no);
-  alert(`${po.no}\nSupplier: ${po.supplierNama}\n\n` + po.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nTOTAL: ${fmt(po.total)}`);
+  const refLine = po.poCustomer ? `No. PO Customer: ${po.poCustomer}\n` : '';
+  alert(`${po.no}\n${refLine}Supplier: ${po.supplierNama}\nTanggal: ${po.tanggal}\n\n` + po.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nTOTAL: ${fmt(po.total)}`);
 }
 function renderGRN() {
   document.querySelector('#tblGRN tbody').innerHTML = DB.grn.map(g => `
     <tr class="border-b">
       <td class="p-2 font-mono text-xs">${g.no}</td>
       <td class="p-2">${g.tanggal}</td>
-      <td class="p-2 font-mono text-xs">${g.poNo}</td>
+      <td class="p-2 font-mono text-xs">
+        ${g.poNo}
+        ${g.poCustomer ? `<div class="text-xs text-blue-600 mt-0.5">Ref: ${g.poCustomer}</div>` : ''}
+      </td>
       <td class="p-2 text-right">${fmt(g.dpp)}</td>
       <td class="p-2 text-right">${fmt(g.ppn)}</td>
       <td class="p-2 text-right font-semibold">${fmt(g.total)}</td>
@@ -2155,7 +1969,8 @@ function renderGRN() {
 }
 function showGRNDetail(no) {
   const g = DB.grn.find(x => x.no === no);
-  alert(`${g.no}\nSupplier: ${g.supplierNama}\n\n` + g.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nDPP: ${fmt(g.dpp)}\nPPN: ${fmt(g.ppn)}\nTOTAL: ${fmt(g.total)}`);
+  const refLine = g.poCustomer ? `Ref PO Customer: ${g.poCustomer}\n` : '';
+  alert(`${g.no}\n${refLine}Supplier: ${g.supplierNama}\n\n` + g.items.map(i => `${i.produkNama} — ${i.qty} x ${fmt(i.harga)} = ${fmt(i.subtotal)}`).join('\n') + `\n\nDPP: ${fmt(g.dpp)}\nPPN: ${fmt(g.ppn)}\nTOTAL: ${fmt(g.total)}`);
 }
 function renderSO() {
   document.querySelector('#tblSO tbody').innerHTML = DB.so.map(s => `
@@ -2183,9 +1998,7 @@ function renderInvoice() {
     const isChecked = selectedInvoices.has(i.no);
     return `
     <tr class="border-b ${isChecked ? 'row-selected' : ''}" data-invno="${i.no}">
-      <td class="text-center p-2">
-        <input type="checkbox" class="checkbox-inv chk-inv" data-invno="${i.no}" ${isChecked ? 'checked' : ''} onchange="toggleInvoiceSelection('${i.no}', this.checked)">
-      </td>
+      <td class="text-center p-2"><input type="checkbox" class="checkbox-inv chk-inv" data-invno="${i.no}" ${isChecked ? 'checked' : ''} onchange="toggleInvoiceSelection('${i.no}', this.checked)"></td>
       <td class="p-2 font-mono text-xs">${i.no}</td>
       <td class="p-2">${i.tanggal}</td>
       <td class="p-2">${i.customerNama}</td>
@@ -2257,7 +2070,6 @@ function renderTrial() {
   document.getElementById('totalDebit').textContent = fmt(tD);
   document.getElementById('totalKredit').textContent = fmt(tK);
 }
-
 function getLabaRugiData() {
   const penjualan = -(DB.saldo['401'] || 0);
   const hpp = DB.saldo['501'] || 0;
@@ -2267,7 +2079,6 @@ function getLabaRugiData() {
   });
   return { penjualan, hpp, beban, labaKotor: penjualan - hpp, labaBersih: penjualan - hpp - beban };
 }
-
 function renderLabaRugi() {
   const select = document.getElementById('lrPeriode');
   if (select.options.length === 0) {
@@ -2279,9 +2090,8 @@ function renderLabaRugi() {
   }
   const val = select.value || 'current';
   let d;
-  if (val === 'current') {
-    d = getLabaRugiData();
-  } else {
+  if (val === 'current') d = getLabaRugiData();
+  else {
     const idx = parseInt(val.split('-')[1]);
     const p = DB.closedPeriods[idx];
     d = { penjualan: p.penjualan, hpp: p.hpp, beban: p.beban, labaKotor: p.penjualan - p.hpp, labaBersih: p.labaBersih };
@@ -2294,7 +2104,6 @@ function renderLabaRugi() {
     <tr class="bg-green-50 font-bold text-lg"><td class="p-2">LABA BERSIH</td><td class="p-2 text-right text-green-700">${fmt(d.labaBersih)}</td></tr>
   `;
 }
-
 function getNeracaData() {
   const kas = DB.saldo['101'] || 0;
   const piutang = DB.saldo['102'] || 0;
@@ -2328,7 +2137,6 @@ function getNeracaData() {
     totalAset, totalKewajiban, totalEkuitas, totalPasiva,
   };
 }
-
 function renderNeraca() {
   const d = getNeracaData();
   document.getElementById('neracaTgl').textContent = 'Per: ' + today();
@@ -2346,7 +2154,6 @@ function renderNeraca() {
   if (diff < 1) { status.textContent = '✓ Balance'; status.className = 'text-center mt-2 text-green-600 font-semibold'; }
   else { status.textContent = `⚠ Selisih: ${fmt(diff)}`; status.className = 'text-center mt-2 text-yellow-600 font-semibold text-xs'; }
 }
-
 function renderArusKas() {
   const kasMasuk = DB.invoice.reduce((s,i) => s + i.penjualan, 0);
   let totalBeban = 0;
@@ -2361,7 +2168,6 @@ function renderArusKas() {
     <tr class="bg-blue-50 font-bold"><td class="p-2">Saldo Kas Akhir</td><td class="p-2 text-right">${fmt(DB.saldo['101'] || 0)}</td></tr>
   `;
 }
-
 function renderClosing() {
   const d = getLabaRugiData();
   document.getElementById('closingPeriode').textContent = periodLabel(DB.currentPeriod);
@@ -2384,7 +2190,6 @@ function renderClosing() {
     btnUnlock.classList.add('hidden');
   }
 }
-
 function renderClosedPeriods() {
   document.querySelector('#tblClosedPeriods tbody').innerHTML = DB.closedPeriods.map(p => `
     <tr class="border-b">
@@ -2398,22 +2203,18 @@ function renderClosedPeriods() {
     </tr>
   `).join('') || '<tr><td colspan="7" class="text-center p-4 text-slate-400">Belum ada periode tertutup</td></tr>';
 }
-
 function renderAuditLog() {
   const dari = document.getElementById('auditDari')?.value || '';
   const sampai = document.getElementById('auditSampai')?.value || '';
   const filterAksi = document.getElementById('auditFilterAksi')?.value || '';
-
   let filtered = DB.auditLog.slice().reverse();
   if (dari) filtered = filtered.filter(a => a.waktu.slice(0,10) >= dari);
   if (sampai) filtered = filtered.filter(a => a.waktu.slice(0,10) <= sampai);
   if (filterAksi) filtered = filtered.filter(a => a.aksi === filterAksi);
-
   document.getElementById('auditTotal').textContent = DB.auditLog.length;
   document.getElementById('auditClosing').textContent = DB.auditLog.filter(a => a.aksi === 'TUTUP BUKU').length;
   document.getElementById('auditUnlock').textContent = DB.auditLog.filter(a => a.aksi === 'UNLOCK').length;
   document.getElementById('auditKoreksi').textContent = DB.auditLog.filter(a => a.aksi === 'JURNAL KOREKSI').length;
-
   document.querySelector('#tblAuditLog tbody').innerHTML = filtered.map(a => {
     const colorMap = {
       'TUTUP BUKU': 'bg-red-100 text-red-700',
@@ -2422,6 +2223,7 @@ function renderAuditLog() {
       'FAKTUR PAJAK': 'bg-green-100 text-green-700',
       'MASTER DATA': 'bg-slate-100 text-slate-700',
       'SISTEM': 'bg-purple-100 text-purple-700',
+      'PO DIBUAT': 'bg-cyan-100 text-cyan-700',
     };
     return `
       <tr class="border-b text-xs">
@@ -2435,10 +2237,6 @@ function renderAuditLog() {
     `;
   }).join('') || '<tr><td colspan="6" class="text-center p-4 text-slate-400">Belum ada aktivitas</td></tr>';
 }
-
-/* =========================================================
-   LAPORAN PERIODIK
-   ========================================================= */
 function getInvoiceLines(dari, sampai) {
   const out = [];
   DB.invoice.forEach(inv => {
@@ -2526,15 +2324,11 @@ function renderLapPembelian() {
     </tr>
   `).join('') || '<tr><td colspan="7" class="text-center p-3 text-slate-400">Tidak ada data</td></tr>';
 }
-
 function resetData() {
   if (!confirm('Reset semua data demo?')) return;
   location.reload();
 }
 
-/* =========================================================
-   SEED DUMMY DATA
-   ========================================================= */
 function seed() {
   DB.suppliers = [
     { kode: 'S001', nama: 'PT Sumber Makmur', alamat: 'Jl. Industri Raya No. 45, Jakarta Utara', npwp: '01.111.222.3-401.000', status: 'PKP' },
@@ -2565,20 +2359,20 @@ function seed() {
     { akun: '301', nama: 'Modal Disetor', debit: 0, kredit: 500000000 },
   ]);
 
-  createPO('S001', '2026-10-02', [
+  createPO('S001', '2026-10-02', 'PO-CUST/2026/001', [
     { produkKode: 'P001', qty: 100, harga: 55000 },
     { produkKode: 'P002', qty: 80, harga: 32000 },
   ]);
   doGRN(DB.po[0].no, '2026-10-03');
 
-  createPO('S002', '2026-10-05', [
+  createPO('S002', '2026-10-05', 'PO-CUST/2026/002', [
     { produkKode: 'P003', qty: 200, harga: 14000 },
     { produkKode: 'P004', qty: 150, harga: 11000 },
     { produkKode: 'P005', qty: 100, harga: 22000 },
   ]);
   doGRN(DB.po[1].no, '2026-10-06');
 
-  createPO('S003', '2026-10-10', [
+  createPO('S003', '2026-10-10', null, [
     { produkKode: 'P006', qty: 120, harga: 18000 },
     { produkKode: 'P001', qty: 50, harga: 56000 },
   ]);
@@ -2638,7 +2432,7 @@ function seed() {
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function createPO(supKode, tgl, items) {
+function createPO(supKode, tgl, poCustomer, items) {
   const sup = DB.suppliers.find(s => s.kode === supKode);
   DB.counter.po++;
   const fullItems = items.map(i => {
@@ -2647,6 +2441,7 @@ function createPO(supKode, tgl, items) {
   });
   DB.po.push({
     no: 'PO' + String(DB.counter.po).padStart(4,'0'),
+    poCustomer: poCustomer || null,
     tanggal: tgl, supplierKode: supKode, supplierNama: sup.nama,
     items: fullItems, total: fullItems.reduce((s,i) => s + i.subtotal, 0),
     totalItem: fullItems.length, status: 'OPEN'
@@ -2670,7 +2465,8 @@ function doGRN(poNo, tgl) {
   ]);
   DB.grn.push({
     no: 'GRN' + String(DB.counter.grn).padStart(4,'0'),
-    tanggal: tgl, poNo: po.no, supplierNama: po.supplierNama,
+    tanggal: tgl, poNo: po.no, poCustomer: po.poCustomer || null,
+    supplierNama: po.supplierNama,
     items: po.items.map(i => ({ ...i })), dpp, ppn, total
   });
   po.status = 'CLOSED';
@@ -2721,9 +2517,6 @@ function doInvoice(soNo, tgl) {
   so.status = 'CLOSED';
 }
 
-/* =========================================================
-   INIT
-   ========================================================= */
 try {
   seed();
   console.log('✅ Seed OK. Produk:', DB.products.length, 'Customer:', DB.customers.length, 'Invoice:', DB.invoice.length, 'Jurnal:', DB.jurnal.length);
